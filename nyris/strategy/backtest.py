@@ -1,7 +1,7 @@
-"""Harness de backtest déterministe (mono-actif).
+"""Harness de backtest déterministe (mono-actif), O(n).
 
-Rejoue `evaluate()` sur l'historique de bougies, gère une position à la fois,
-applique les frais via `services.pnl`, et calcule les métriques de validation.
+Rejoue la décision sur l'historique (indicateurs précalculés une fois), gère une
+position à la fois, applique les frais via `services.pnl`, calcule les métriques.
 Exécution : python -m nyris.strategy.backtest BTC [timeframe] [limit]
 """
 
@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from nyris.services import pnl
-from nyris.strategy.engine import evaluate
+from nyris.strategy.engine import _decide, compute_indicators, warmup
 from nyris.strategy.models import Action, Candle, PositionState, StrategyParams
 
 _MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30
@@ -27,52 +27,6 @@ def timeframe_hours(tf: str) -> float:
     if tf.endswith("m"):
         return float(int(tf[:-1]) / 60)
     return 1.0
-
-
-@dataclass
-class BacktestResult:
-    params: dict
-    starting_capital: Decimal
-    final_capital: Decimal
-    n_trades: int
-    win_rate: float
-    profit_factor: float | None
-    avg_r: float | None
-    total_pnl: Decimal
-    total_return_pct: float
-    max_drawdown_pct: float
-    avg_bars_in_position: float | None
-    avg_duration_hours: float | None
-    trades_per_month: float | None
-    exit_reason_distribution: dict
-    open_position: bool
-    trades: list = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {
-            "params": self.params,
-            "starting_capital": str(self.starting_capital),
-            "final_capital": str(self.final_capital),
-            "n_trades": self.n_trades,
-            "win_rate": round(self.win_rate, 4),
-            "profit_factor": None if self.profit_factor is None else round(self.profit_factor, 4),
-            "avg_r": None if self.avg_r is None else round(self.avg_r, 4),
-            "total_pnl": str(self.total_pnl),
-            "total_return_pct": round(self.total_return_pct, 4),
-            "max_drawdown_pct": round(self.max_drawdown_pct, 4),
-            "avg_bars_in_position": (
-                None if self.avg_bars_in_position is None else round(self.avg_bars_in_position, 2)
-            ),
-            "avg_duration_hours": (
-                None if self.avg_duration_hours is None else round(self.avg_duration_hours, 2)
-            ),
-            "trades_per_month": (
-                None if self.trades_per_month is None else round(self.trades_per_month, 2)
-            ),
-            "exit_reason_distribution": self.exit_reason_distribution,
-            "open_position": self.open_position,
-            "trades": self.trades[-10:],  # derniers trades en exemple
-        }
 
 
 def summarize(
@@ -95,8 +49,7 @@ def summarize(
         if cap > peak:
             peak = cap
         if peak > 0:
-            dd = float((peak - cap) / peak)
-            max_dd = max(max_dd, dd)
+            max_dd = max(max_dd, float((peak - cap) / peak))
 
     total_pnl = sum(pnls, Decimal("0"))
     months = (span_ms / _MS_PER_MONTH) if span_ms and span_ms > 0 else None
@@ -119,6 +72,27 @@ def summarize(
     }
 
 
+@dataclass
+class BacktestResult:
+    params: dict
+    starting_capital: Decimal
+    final_capital: Decimal
+    metrics: dict
+    open_position: bool
+    trades: list = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        d = {
+            "params": self.params,
+            "starting_capital": str(self.starting_capital),
+            "final_capital": str(self.final_capital),
+            "open_position": self.open_position,
+            "trades": self.trades[-10:],
+        }
+        d.update(self.metrics)
+        return d
+
+
 def run_backtest(
     candles: list[Candle],
     params: StrategyParams,
@@ -126,17 +100,15 @@ def run_backtest(
     compounding: bool = True,
 ) -> BacktestResult:
     cap = starting_capital
-    equity_peak = cap
-    max_dd = 0.0
     position: dict | None = None
     entry_index: int | None = None
     cooldown_until = -1
     trades: list[dict] = []
 
-    warmup = max(params.ema_trend, params.ema_slow, params.atr_period) + 2
+    warm = warmup(params)
+    ef, es, et, at = compute_indicators(candles, params)
 
-    for i in range(warmup, len(candles)):
-        window = candles[: i + 1]
+    for i in range(warm, len(candles)):
         pos_state = None
         if position is not None:
             pos_state = PositionState(
@@ -145,7 +117,7 @@ def run_backtest(
                 take_profit=position["tp"],
                 bars_held=i - entry_index,
             )
-        dec = evaluate(window, pos_state, params)
+        dec = _decide(i, ef, es, et, at, candles, pos_state, params)
 
         if position is None:
             if dec.action == Action.enter and i > cooldown_until:
@@ -168,9 +140,7 @@ def run_backtest(
                 position["notional"], position["qty"], dec.snapshot.close, params.exit_fee_rate
             )
             cap = cap + cr.pnl_net
-            r_mult = (
-                float(cr.pnl_net / position["risk_eur"]) if position["risk_eur"] != 0 else None
-            )
+            r_mult = float(cr.pnl_net / position["risk_eur"]) if position["risk_eur"] != 0 else None
             trades.append(
                 {
                     "entry_time": position["entry_time"],
@@ -188,44 +158,13 @@ def run_backtest(
             position = None
             entry_index = None
 
-        if cap > equity_peak:
-            equity_peak = cap
-        if equity_peak > 0:
-            dd = float((equity_peak - cap) / equity_peak)
-            if dd > max_dd:
-                max_dd = dd
-
-    # Métriques
-    n = len(trades)
-    wins = [t for t in trades if Decimal(t["pnl_net"]) > 0]
-    gross_profit = sum((Decimal(t["pnl_net"]) for t in wins), Decimal("0"))
-    gross_loss = sum(
-        (-Decimal(t["pnl_net"]) for t in trades if Decimal(t["pnl_net"]) < 0), Decimal("0")
-    )
-    r_values = [t["r_multiple"] for t in trades if t["r_multiple"] is not None]
-    bars = [t["bars"] for t in trades]
-    tf_h = timeframe_hours(params.timeframe)
-
-    months = None
-    if len(candles) > warmup:
-        span = candles[-1].close_time - candles[warmup].close_time
-        months = max(span / _MS_PER_MONTH, 1e-9)
-
+    span = candles[-1].close_time - candles[warm].close_time if len(candles) > warm else 0
+    metrics = summarize(trades, starting_capital, span, timeframe_hours(params.timeframe))
     return BacktestResult(
         params=params.to_dict(),
         starting_capital=starting_capital,
         final_capital=cap,
-        n_trades=n,
-        win_rate=(len(wins) / n) if n else 0.0,
-        profit_factor=(float(gross_profit / gross_loss) if gross_loss > 0 else None),
-        avg_r=(sum(r_values) / len(r_values) if r_values else None),
-        total_pnl=cap - starting_capital,
-        total_return_pct=float((cap / starting_capital - 1) * 100) if starting_capital else 0.0,
-        max_drawdown_pct=max_dd * 100,
-        avg_bars_in_position=(sum(bars) / len(bars) if bars else None),
-        avg_duration_hours=((sum(bars) / len(bars)) * tf_h if bars else None),
-        trades_per_month=(n / months if months else None),
-        exit_reason_distribution=dict(Counter(t["reason"] for t in trades)),
+        metrics=metrics,
         open_position=position is not None,
         trades=trades,
     )

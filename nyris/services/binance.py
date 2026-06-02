@@ -128,9 +128,20 @@ def get_exchange_info() -> dict[str, dict]:
     return out
 
 
-def get_klines(symbol: str, interval: str, limit: int = 1000) -> list[list]:
+def get_klines(
+    symbol: str,
+    interval: str,
+    limit: int = 1000,
+    start_time: int | None = None,
+    end_time: int | None = None,
+) -> list[list]:
     """Bougies OHLCV (tableau de tableaux Binance). Public, sans clé."""
-    data = _get(_KLINES_PATH, params={"symbol": symbol, "interval": interval, "limit": limit})
+    params: dict = {"symbol": symbol, "interval": interval, "limit": limit}
+    if start_time is not None:
+        params["startTime"] = start_time
+    if end_time is not None:
+        params["endTime"] = end_time
+    data = _get(_KLINES_PATH, params=params)
     if not isinstance(data, list):
         raise BinanceBadResponse("Réponse klines inattendue")
     return data
