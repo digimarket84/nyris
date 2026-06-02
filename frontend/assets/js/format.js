@@ -1,4 +1,21 @@
 // Helpers de formatage (affichage uniquement, ne modifie pas les valeurs API).
+//
+// ===================================================================
+//  CONVENTION UI GLOBALE — couleur & signe des valeurs de performance
+// ===================================================================
+//  Toute valeur de GAIN / PERTE / PERFORMANCE (PnL €, PnL %, R, ...) :
+//    - positive  -> vert  (text-emerald-600)  + signe "+"
+//    - négative  -> rouge (text-red-600)       + signe "-"
+//    - zéro/null -> gris/neutre (text-slate-500/600), sans signe
+//  RÈGLES :
+//    - NE PAS colorer les prix bruts sans contexte (close, EMA, ATR,
+//      entry/stop/TP, capital investi, valeur de sortie, exposition...).
+//    - Toujours utiliser ces helpers (pas de style couleur en dur dans les pages).
+//  USAGE :
+//    :class="fmt.pnlClass(v)"   + x-text="fmt.eurSigned(v)"   // montants PnL €
+//    :class="fmt.pnlClass(v)"   + x-text="fmt.pctSigned(v)"   // PnL en %
+//    :class="fmt.pnlClass(v)"   + x-text="fmt.numSigned(v)"   // métrique signée (R, ...)
+// ===================================================================
 (function () {
   const eurFmt = new Intl.NumberFormat("fr-FR", {
     style: "currency",
@@ -9,7 +26,7 @@
 
   const toNum = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
 
-  // #3 - décimales contextuelles : on coupe les zéros inutiles selon l'ordre de grandeur
+  // décimales contextuelles : on coupe les zéros inutiles selon l'ordre de grandeur
   function ctxMax(n) {
     const a = Math.abs(n);
     if (a >= 1000) return 2;
@@ -19,12 +36,12 @@
   }
 
   window.fmt = {
-    // Montants (capital, PnL) : toujours 2 décimales
+    // --- Montants neutres (capital, valeurs brutes) : 2 décimales, PAS de signe/couleur ---
     eur(v) {
       const n = toNum(v);
       return n === null ? "—" : eurFmt.format(n);
     },
-    // Prix unitaire en EUR : 2 décimales mini, plus si l'actif est "petit"
+    // --- Prix unitaire en EUR (brut, neutre) ---
     priceEur(v) {
       const n = toNum(v);
       if (n === null) return "—";
@@ -35,7 +52,7 @@
         maximumFractionDigits: Math.max(2, ctxMax(n)),
       }).format(n);
     },
-    // Nombre générique contextuel (quantités, prix bruts) — zéros inutiles coupés
+    // --- Nombre générique contextuel (quantités, prix bruts, neutre) ---
     price(v) {
       const n = toNum(v);
       if (n === null) return "—";
@@ -48,7 +65,8 @@
       const n = toNum(v);
       return n === null ? "—" : `${n.toFixed(2)} %`;
     },
-    // --- PnL : valeur SIGNÉE (+/−). À réserver aux gains/pertes, jamais aux prix bruts. ---
+
+    // --- PERFORMANCE : valeurs SIGNÉES (+/−). À coupler avec pnlClass(). ---
     eurSigned(v) {
       const n = toNum(v);
       if (n === null) return "—";
@@ -61,11 +79,20 @@
       const sign = n > 0 ? "+" : ""; // négatif déjà signé par toFixed
       return `${sign}${n.toFixed(2)} %`;
     },
+    numSigned(v, digits = 2) {
+      const n = toNum(v);
+      if (n === null) return "—";
+      const sign = n > 0 ? "+" : "";
+      return `${sign}${n.toFixed(digits)}`;
+    },
+
     dt(iso) {
       if (!iso) return "—";
       const d = new Date(iso);
       return isNaN(d.getTime()) ? "—" : d.toLocaleString();
     },
+
+    // --- Classe couleur unique pour TOUTE valeur de performance ---
     pnlClass(v) {
       const n = toNum(v);
       if (n === null) return "text-slate-500";
