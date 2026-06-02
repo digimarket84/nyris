@@ -45,6 +45,8 @@ class TradeRead(BaseModel):
     exit_fee_rate: Decimal | None
     exit_fee_amount: Decimal | None
 
+    stop_price: Decimal | None
+    take_profit_price: Decimal | None
     exit_price: Decimal | None
     exit_gross_value: Decimal | None
     exit_net_value: Decimal | None

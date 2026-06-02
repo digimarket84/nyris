@@ -30,6 +30,11 @@ class Reason(enum.StrEnum):
     exit_inverse = "exit_inverse"
     exit_trend_invalidated = "exit_trend_invalidated"
     exit_time = "exit_time"
+    # Entrée bloquée par un garde-fou du runner (signal valide mais non exécuté)
+    skip_blocked_max_positions = "skip_blocked_max_positions"
+    skip_blocked_exposure = "skip_blocked_exposure"
+    skip_blocked_cooldown = "skip_blocked_cooldown"
+    skip_blocked_min_notional = "skip_blocked_min_notional"
 
 
 @dataclass(frozen=True)

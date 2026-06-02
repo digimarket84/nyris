@@ -64,6 +64,10 @@ class SimulatedTrade(Base, TimestampMixin):
     pnl_net: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
     pnl_percent: Mapped[Decimal | None] = mapped_column(_PCT, nullable=True)
 
+    # Niveaux de gestion (posés par le runner ; null pour les trades manuels)
+    stop_price: Mapped[Decimal | None] = mapped_column(_PRICE, nullable=True)
+    take_profit_price: Mapped[Decimal | None] = mapped_column(_PRICE, nullable=True)
+
     # --- Métadonnées (opened_at/closed_at indexés pour les filtres période) ---
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     opened_at: Mapped[datetime] = mapped_column(
