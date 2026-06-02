@@ -5,6 +5,7 @@
     { href: "market.html", label: "Marché" },
     { href: "new-trade.html", label: "Nouveau trade" },
     { href: "trades.html", label: "Historique" },
+    { href: "decisions.html", label: "Décisions" },
   ];
   const current = location.pathname.split("/").pop() || "index.html";
   let bannerTimer = null;

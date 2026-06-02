@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nyris — Décisions</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <script defer src="assets/js/api.js"></script>
+  <script defer src="assets/js/format.js"></script>
+  <script defer src="assets/js/shell.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="shell-header"></div>
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <div id="error-banner"></div>
+
+    <div x-data="decisionsPage()" x-init="init()" x-cloak>
+      <h1 class="text-lg font-semibold text-slate-900 mb-4">Décisions de la stratégie</h1>
+
+      <!-- Filtres -->
+      <div class="bg-white rounded-lg border border-slate-200 p-3 mb-4 grid grid-cols-2 md:grid-cols-4 gap-2 items-end text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">run_id</label>
+          <input x-model="filters.run_id" class="w-full border border-slate-300 rounded-md px-2 py-1.5" placeholder="(tous)" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Actif</label>
+          <select x-model="filters.symbol" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Tous</option>
+            <template x-for="a in assets" :key="a.id"><option :value="a.symbol" x-text="a.symbol"></option></template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Action</label>
+          <select x-model="filters.action" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Toutes</option>
+            <option value="enter">enter</option>
+            <option value="exit">exit</option>
+            <option value="hold">hold</option>
+            <option value="skip">skip</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Reason</label>
+          <select x-model="filters.reason" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Toutes</option>
+            <template x-for="r in reasons" :key="r"><option :value="r" x-text="r"></option></template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Position</label>
+          <select x-model="filters.position_state" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Toutes</option>
+            <option value="flat">flat</option>
+            <option value="open">open</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Depuis</label>
+          <input type="datetime-local" x-model="filters.from" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Jusqu'à</label>
+          <input type="datetime-local" x-model="filters.to" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+        </div>
+        <div class="flex gap-2">
+          <button @click="applyFilters()" class="flex-1 bg-slate-900 text-white px-3 py-1.5 rounded-md hover:bg-slate-700">Filtrer</button>
+          <button @click="resetFilters()" class="border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-100">Reset</button>
+        </div>
+      </div>
+
+      <!-- Synthèse -->
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">Total (périmètre)</div>
+          <div class="text-xl font-semibold tnum" x-text="scopeTotal()"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">enter</div>
+          <div class="text-xl font-semibold tnum text-emerald-600" x-text="counts.enter"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">exit</div>
+          <div class="text-xl font-semibold tnum text-red-600" x-text="counts.exit"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">hold</div>
+          <div class="text-xl font-semibold tnum text-blue-600" x-text="counts.hold"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">skip</div>
+          <div class="text-xl font-semibold tnum text-slate-500" x-text="counts.skip"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+        <div class="bg-amber-50 rounded-lg border border-amber-200 p-3">
+          <div class="text-xs text-amber-700">hold_no_trend (sous EMA200)</div>
+          <div class="text-lg font-semibold tnum text-amber-800" x-text="reasonCounts.hold_no_trend"></div>
+        </div>
+        <div class="bg-amber-50 rounded-lg border border-amber-200 p-3">
+          <div class="text-xs text-amber-700">hold_no_cross (pas de croisement)</div>
+          <div class="text-lg font-semibold tnum text-amber-800" x-text="reasonCounts.hold_no_cross"></div>
+        </div>
+        <div class="bg-indigo-50 rounded-lg border border-indigo-200 p-3">
+          <div class="text-xs text-indigo-700">hold_in_position</div>
+          <div class="text-lg font-semibold tnum text-indigo-800" x-text="reasonCounts.hold_in_position"></div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-lg border border-slate-200 overflow-x-auto">
+        <table class="text-sm" style="min-width: 1180px">
+          <thead>
+            <tr class="text-left text-xs font-medium text-slate-500 uppercase">
+              <th class="px-3 py-2">Date</th>
+              <th class="px-3 py-2">Sym</th>
+              <th class="px-3 py-2">TF</th>
+              <th class="px-3 py-2">Action</th>
+              <th class="px-3 py-2">Reason</th>
+              <th class="px-3 py-2">Pos</th>
+              <th class="px-3 py-2 text-right">Close</th>
+              <th class="px-3 py-2 text-right">EMA f/s/t</th>
+              <th class="px-3 py-2 text-right">ATR</th>
+              <th class="px-3 py-2 text-right">Entry</th>
+              <th class="px-3 py-2 text-right">Stop</th>
+              <th class="px-3 py-2 text-right">TP</th>
+              <th class="px-3 py-2">run_id</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr x-show="loading">
+              <td colspan="13" class="px-3 py-6 text-center text-slate-500"><span class="spinner"></span> Chargement…</td>
+            </tr>
+            <template x-for="d in items" :key="d.id">
+              <tr class="border-t border-slate-100" x-show="!loading">
+                <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap" x-text="fmt.dt(d.evaluated_at)"></td>
+                <td class="px-3 py-2 font-medium" x-text="d.symbol"></td>
+                <td class="px-3 py-2 text-slate-500" x-text="d.timeframe"></td>
+                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="actionClass(d.action)" x-text="d.action"></span></td>
+                <td class="px-3 py-2 text-slate-700 whitespace-nowrap" x-text="d.reason"></td>
+                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="psClass(d.position_state)" x-text="d.position_state"></span></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(d.close_price)"></td>
+                <td class="px-3 py-2 text-right tnum text-xs text-slate-500" x-text="`${fmt.price(d.ema_fast)} / ${fmt.price(d.ema_slow)} / ${fmt.price(d.ema_trend)}`"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.price(d.atr)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(d.entry_price)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(d.stop_price)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(d.take_profit_price)"></td>
+                <td class="px-3 py-2 text-xs text-slate-400" :title="d.run_id" x-text="shortRun(d.run_id)"></td>
+              </tr>
+            </template>
+            <tr x-show="!loading && items.length === 0">
+              <td colspan="13" class="px-3 py-8 text-center text-slate-400">Aucune décision pour ces filtres.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between mt-3 text-sm text-slate-500">
+        <span x-text="`Total : ${total}`"></span>
+        <div class="flex gap-2 items-center">
+          <button @click="prev()" :disabled="filters.offset === 0" class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">‹ Précédent</button>
+          <span class="tnum" x-show="items.length" x-text="`${filters.offset + 1}–${filters.offset + items.length}`"></span>
+          <button @click="next()" :disabled="!hasMore()" class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">Suivant ›</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function decisionsPage() {
+      return {
+        loading: true,
+        assets: [],
+        reasons: [
+          "skip_no_data", "hold_no_trend", "hold_no_cross", "hold_in_position",
+          "enter_signal", "exit_stop", "exit_take_profit", "exit_inverse",
+          "exit_trend_invalidated", "exit_time",
+        ],
+        filters: {
+          run_id: "", symbol: "", action: "", reason: "", position_state: "",
+          from: "", to: "", limit: 25, offset: 0,
+        },
+        items: [],
+        total: 0,
+        counts: { enter: 0, exit: 0, hold: 0, skip: 0 },
+        reasonCounts: { hold_no_trend: 0, hold_no_cross: 0, hold_in_position: 0 },
+
+        async init() {
+          try { this.assets = await api.getAssets(); } catch (e) { /* non bloquant */ }
+          await this.reload();
+        },
+        isoOrEmpty(v) {
+          if (!v) return "";
+          const d = new Date(v);
+          return isNaN(d.getTime()) ? "" : d.toISOString();
+        },
+        tableParams() {
+          const p = { limit: this.filters.limit, offset: this.filters.offset };
+          for (const k of ["run_id", "symbol", "action", "reason", "position_state"]) {
+            if (this.filters[k]) p[k] = this.filters[k];
+          }
+          const f = this.isoOrEmpty(this.filters.from);
+          const t = this.isoOrEmpty(this.filters.to);
+          if (f) p.from = f;
+          if (t) p.to = t;
+          return p;
+        },
+        scopeParams() {
+          // périmètre de la synthèse : tous les filtres SAUF action/reason
+          const p = {};
+          for (const k of ["run_id", "symbol", "position_state"]) {
+            if (this.filters[k]) p[k] = this.filters[k];
+          }
+          const f = this.isoOrEmpty(this.filters.from);
+          const t = this.isoOrEmpty(this.filters.to);
+          if (f) p.from = f;
+          if (t) p.to = t;
+          return p;
+        },
+        async loadTable() {
+          this.loading = true;
+          shell.clearError();
+          try {
+            const r = await api.getStrategyDecisions(this.tableParams());
+            this.items = r.items;
+            this.total = r.total;
+          } catch (e) {
+            shell.showError("Chargement décisions : " + e.message);
+          } finally {
+            this.loading = false;
+          }
+        },
+        async loadSummary() {
+          const base = this.scopeParams();
+          try {
+            const acts = ["enter", "exit", "hold", "skip"];
+            const rns = ["hold_no_trend", "hold_no_cross", "hold_in_position"];
+            const [a, r] = await Promise.all([
+              Promise.all(acts.map((x) =>
+                api.getStrategyDecisions({ ...base, action: x, limit: 1 }).then((d) => d.total).catch(() => 0))),
+              Promise.all(rns.map((x) =>
+                api.getStrategyDecisions({ ...base, reason: x, limit: 1 }).then((d) => d.total).catch(() => 0))),
+            ]);
+            this.counts = { enter: a[0], exit: a[1], hold: a[2], skip: a[3] };
+            this.reasonCounts = { hold_no_trend: r[0], hold_no_cross: r[1], hold_in_position: r[2] };
+          } catch (e) {
+            /* synthèse best-effort */
+          }
+        },
+        scopeTotal() {
+          return this.counts.enter + this.counts.exit + this.counts.hold + this.counts.skip;
+        },
+        async reload() {
+          this.filters.offset = 0;
+          await Promise.all([this.loadTable(), this.loadSummary()]);
+        },
+        applyFilters() { this.reload(); },
+        resetFilters() {
+          this.filters = {
+            run_id: "", symbol: "", action: "", reason: "", position_state: "",
+            from: "", to: "", limit: 25, offset: 0,
+          };
+          this.reload();
+        },
+        next() {
+          if (this.hasMore()) { this.filters.offset += this.filters.limit; this.loadTable(); }
+        },
+        prev() {
+          if (this.filters.offset > 0) {
+            this.filters.offset = Math.max(0, this.filters.offset - this.filters.limit);
+            this.loadTable();
+          }
+        },
+        hasMore() { return this.filters.offset + this.items.length < this.total; },
+        actionClass(a) {
+          return a === "enter" ? "bg-emerald-100 text-emerald-700"
+            : a === "exit" ? "bg-red-100 text-red-700"
+            : a === "skip" ? "bg-slate-200 text-slate-600"
+            : "bg-blue-100 text-blue-700";
+        },
+        psClass(p) {
+          return p === "open" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600";
+        },
+        shortRun(r) {
+          if (!r) return "—";
+          return r.length > 22 ? "…" + r.slice(-20) : r;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

@@ -57,6 +57,7 @@
     getMarketPrice: (assetId) => request("GET", "/api/v1/market/price" + qs({ asset_id: assetId })),
     postMarketSync: () => request("POST", "/api/v1/market/sync"),
     getPortfolioSummary: (params) => request("GET", "/api/v1/portfolio/summary" + qs(params)),
+    getStrategyDecisions: (params) => request("GET", "/api/v1/strategy/decisions" + qs(params)),
     getTradesHistory: (params) => request("GET", "/api/v1/trades/history" + qs(params)),
     createTrade: (body) => request("POST", "/api/v1/trades", body),
     closeTrade: (id, body) => request("POST", `/api/v1/trades/${id}/close`, body),
