@@ -5,13 +5,15 @@ Distinction importante :
 - ``exchange_symbol`` : symbole côté exchange (peut différer selon la plateforme)
 - ``status``          : cycle de vie de suivi (active / watch_only / delisted)
 - ``is_tradeable``    : autorise ou non l'ouverture de trades simulés
+- ``binance_symbol``  : paire Binance Spot EUR (ex. BTCEUR) ; null si indisponible
 """
 
 from __future__ import annotations
 
 import enum
+from datetime import datetime
 
-from sqlalchemy import Boolean, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -40,6 +42,13 @@ class Asset(Base, TimestampMixin):
     )
     is_tradeable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # --- Métadonnées Binance (alimentées par /market/sync) ---
+    binance_symbol: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    binance_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    market_synced_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     trades: Mapped[list["SimulatedTrade"]] = relationship(  # noqa: F821, UP037
         back_populates="asset"

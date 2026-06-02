@@ -1,7 +1,7 @@
 """Configuration applicative typée, chargée depuis le fichier .env.
 
 La config est centralisée ici via pydantic-settings. En production, le service
-systemd injectera les variables ; en dev, on lit /srv/nyris/config/.env (chemin
+systemd injecte les variables ; en dev, on lit /srv/nyris/config/.env (chemin
 surchargeable via la variable d'environnement NYRIS_ENV_FILE).
 """
 
@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     default_fee_currency: str = "EUR"
     default_entry_fee_rate: Decimal = Decimal("0.001")
     default_exit_fee_rate: Decimal = Decimal("0.001")
+
+    # Binance (lecture seule, market data publique — aucune clé requise)
+    binance_base_url: str = "https://data-api.binance.vision"
+    binance_fallback_url: str = "https://api.binance.com"
+    binance_quote_currency: str = "EUR"
+    binance_timeout_connect: float = 3.0
+    binance_timeout_read: float = 5.0
+    market_cache_ttl: int = 5  # secondes
 
 
 settings = Settings()

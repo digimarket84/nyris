@@ -28,3 +28,4 @@ uvloop==0.22.1
 watchfiles==1.2.0
 websockets==16.0
 wheel==0.47.0
+httpx

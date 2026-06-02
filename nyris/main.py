@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 
-from nyris.api.routes import assets, health, portfolio, trades
+from nyris.api.routes import assets, health, market, portfolio, trades
 from nyris.core.config import settings
 from nyris.core.logging import configure_logging
 
@@ -17,6 +17,7 @@ app.include_router(health.router)
 app.include_router(assets.router, prefix=API_V1)
 app.include_router(trades.router, prefix=API_V1)
 app.include_router(portfolio.router, prefix=API_V1)
+app.include_router(market.router, prefix=API_V1)
 
 
 @app.get("/", tags=["root"])
