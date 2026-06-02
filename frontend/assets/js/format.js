@@ -48,6 +48,19 @@
       const n = toNum(v);
       return n === null ? "—" : `${n.toFixed(2)} %`;
     },
+    // --- PnL : valeur SIGNÉE (+/−). À réserver aux gains/pertes, jamais aux prix bruts. ---
+    eurSigned(v) {
+      const n = toNum(v);
+      if (n === null) return "—";
+      const s = eurFmt.format(n); // gère déjà le signe négatif et la devise
+      return n > 0 ? `+${s}` : s; // positif -> "+", zéro -> neutre
+    },
+    pctSigned(v) {
+      const n = toNum(v);
+      if (n === null) return "—";
+      const sign = n > 0 ? "+" : ""; // négatif déjà signé par toFixed
+      return `${sign}${n.toFixed(2)} %`;
+    },
     dt(iso) {
       if (!iso) return "—";
       const d = new Date(iso);

@@ -98,8 +98,8 @@
                 <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(t.amount_invested)"></td>
                 <td class="px-3 py-2 text-right tnum" x-text="fmt.price(t.entry_price)"></td>
                 <td class="px-3 py-2 text-right tnum" x-text="t.exit_price ? fmt.price(t.exit_price) : '—'"></td>
-                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_net)" x-text="t.pnl_net !== null ? fmt.eur(t.pnl_net) : '—'"></td>
-                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_net)" x-text="t.pnl_percent !== null ? fmt.pct(t.pnl_percent) : '—'"></td>
+                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_net)" x-text="t.pnl_net !== null ? fmt.eurSigned(t.pnl_net) : '—'"></td>
+                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_net)" x-text="t.pnl_percent !== null ? fmt.pctSigned(t.pnl_percent) : '—'"></td>
                 <td class="px-3 py-2 text-xs text-slate-400" x-text="fmt.dt(t.opened_at)"></td>
                 <td class="px-3 py-2 whitespace-nowrap">
                   <button x-show="t.status === 'open'" @click="openClose(t)"

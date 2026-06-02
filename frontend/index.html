@@ -31,8 +31,8 @@
           <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
             <div class="bg-white rounded-lg border border-slate-200 p-4">
               <div class="text-xs text-slate-500">PnL net réalisé</div>
-              <div class="text-xl font-semibold tnum" :class="fmt.pnlClass(s.realized.pnl_net)" x-text="fmt.eur(s.realized.pnl_net)"></div>
-              <div class="text-xs tnum" :class="fmt.pnlClass(s.realized.pnl_net)" x-text="fmt.pct(s.realized.pnl_percent)"></div>
+              <div class="text-xl font-semibold tnum" :class="fmt.pnlClass(s.realized.pnl_net)" x-text="fmt.eurSigned(s.realized.pnl_net)"></div>
+              <div class="text-xs tnum" :class="fmt.pnlClass(s.realized.pnl_net)" x-text="fmt.pctSigned(s.realized.pnl_percent)"></div>
             </div>
             <div class="bg-white rounded-lg border border-slate-200 p-4">
               <div class="text-xs text-slate-500">Capital investi (réalisé)</div>
@@ -64,11 +64,11 @@
               <div class="text-xs text-slate-500 mb-2 uppercase">Meilleur / pire actif</div>
               <div class="flex gap-6 flex-wrap">
                 <span>Meilleur :
-                  <template x-if="s.best_asset"><b><span x-text="s.best_asset.symbol"></span> <span class="tnum" :class="fmt.pnlClass(s.best_asset.pnl_net)" x-text="fmt.eur(s.best_asset.pnl_net)"></span></b></template>
+                  <template x-if="s.best_asset"><b><span x-text="s.best_asset.symbol"></span> <span class="tnum" :class="fmt.pnlClass(s.best_asset.pnl_net)" x-text="fmt.eurSigned(s.best_asset.pnl_net)"></span></b></template>
                   <template x-if="!s.best_asset"><span class="text-slate-400">—</span></template>
                 </span>
                 <span>Pire :
-                  <template x-if="s.worst_asset"><b><span x-text="s.worst_asset.symbol"></span> <span class="tnum" :class="fmt.pnlClass(s.worst_asset.pnl_net)" x-text="fmt.eur(s.worst_asset.pnl_net)"></span></b></template>
+                  <template x-if="s.worst_asset"><b><span x-text="s.worst_asset.symbol"></span> <span class="tnum" :class="fmt.pnlClass(s.worst_asset.pnl_net)" x-text="fmt.eurSigned(s.worst_asset.pnl_net)"></span></b></template>
                   <template x-if="!s.worst_asset"><span class="text-slate-400">—</span></template>
                 </span>
               </div>
@@ -96,8 +96,8 @@
                     <td class="px-3 py-2 text-right tnum" x-text="a.closed_trades"></td>
                     <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(a.invested)"></td>
                     <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(a.exit_value)"></td>
-                    <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(a.pnl_net)" x-text="fmt.eur(a.pnl_net)"></td>
-                    <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(a.pnl_net)" x-text="fmt.pct(a.pnl_percent)"></td>
+                    <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(a.pnl_net)" x-text="fmt.eurSigned(a.pnl_net)"></td>
+                    <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(a.pnl_net)" x-text="fmt.pctSigned(a.pnl_percent)"></td>
                   </tr>
                 </template>
                 <tr x-show="s.by_asset.length === 0">
