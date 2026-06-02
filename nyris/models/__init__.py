@@ -3,5 +3,13 @@
 from nyris.models.asset import Asset, AssetStatus
 from nyris.models.base import Base
 from nyris.models.simulated_trade import SimulatedTrade, TradeStatus
+from nyris.models.strategy_decision import StrategyDecision
 
-__all__ = ["Asset", "AssetStatus", "Base", "SimulatedTrade", "TradeStatus"]
+__all__ = [
+    "Asset",
+    "AssetStatus",
+    "Base",
+    "SimulatedTrade",
+    "StrategyDecision",
+    "TradeStatus",
+]

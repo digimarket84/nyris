@@ -19,11 +19,12 @@ class Action(enum.StrEnum):
 
 
 class Reason(enum.StrEnum):
-    no_data = "no_data"
-    flat_no_trend = "flat_no_trend"
-    flat_no_cross = "flat_no_cross"
+    # Taxonomie normalisée à préfixes : skip_ / hold_ / enter_ / exit_
+    skip_no_data = "skip_no_data"
+    hold_no_trend = "hold_no_trend"  # à plat : tendance de fond non haussière
+    hold_no_cross = "hold_no_cross"  # à plat : tendance OK mais pas de croisement
+    hold_in_position = "hold_in_position"  # en position : aucune sortie déclenchée
     enter_signal = "enter_signal"
-    in_position_hold = "in_position_hold"
     exit_stop = "exit_stop"
     exit_take_profit = "exit_take_profit"
     exit_inverse = "exit_inverse"
@@ -77,6 +78,13 @@ class StrategyParams:
     # Frais
     entry_fee_rate: Decimal = Decimal("0.001")
     exit_fee_rate: Decimal = Decimal("0.001")
+
+    def key(self) -> str:
+        """Identifiant compact et lisible de la config (pour strategy_decisions)."""
+        return (
+            f"t{self.timeframe}_et{self.ema_trend}_{self.ema_fast}/{self.ema_slow}"
+            f"_atr{self.atr_stop_mult}_R{self.reward_r}_h{self.max_hold}"
+        )
 
     def to_dict(self) -> dict:
         return {

@@ -34,13 +34,13 @@ def mk(closes, hi=None, lo=None):
 
 def test_no_data():
     d = evaluate(mk([100, 101, 102]), None, P)
-    assert d.action == Action.skip and d.reason == Reason.no_data
+    assert d.action == Action.skip and d.reason == Reason.skip_no_data
 
 
 def test_downtrend_pas_dentree():
     closes = [120, 118, 116, 114, 112, 110, 108, 106, 104, 102]
     d = evaluate(mk(closes), None, P)
-    assert d.action == Action.hold and d.reason == Reason.flat_no_trend
+    assert d.action == Action.hold and d.reason == Reason.hold_no_trend
 
 
 def test_entree_sur_croisement_en_tendance():
@@ -83,7 +83,7 @@ def test_sortie_temporelle():
 def test_maintien_en_position():
     pos = PositionState(Decimal("100"), Decimal("1"), Decimal("100000"), 1)
     d = evaluate(mk([100] * 12), pos, P)
-    assert d.action == Action.hold and d.reason == Reason.in_position_hold
+    assert d.action == Action.hold and d.reason == Reason.hold_in_position
 
 
 def test_decision_serialisable():

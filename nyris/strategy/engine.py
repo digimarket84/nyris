@@ -54,7 +54,7 @@ def _decide(
         atr=_d(at[i]),
     )
     if None in (ef[i], es[i], et[i], at[i], ef[i - 1], es[i - 1]):
-        return Decision(Action.skip, Reason.no_data, snap)
+        return Decision(Action.skip, Reason.skip_no_data, snap)
 
     close = float(last.close)
     p = params
@@ -63,9 +63,9 @@ def _decide(
         trend_ok = close > et[i]
         cross_up = ef[i - 1] <= es[i - 1] and ef[i] > es[i]
         if not trend_ok:
-            return Decision(Action.hold, Reason.flat_no_trend, snap)
+            return Decision(Action.hold, Reason.hold_no_trend, snap)
         if not cross_up:
-            return Decision(Action.hold, Reason.flat_no_cross, snap)
+            return Decision(Action.hold, Reason.hold_no_cross, snap)
         stop_f = close - p.atr_stop_mult * at[i]
         min_stop = close * (1.0 - p.max_stop_pct)  # risque plafonné
         if stop_f < min_stop:
@@ -94,7 +94,7 @@ def _decide(
         return Decision(Action.exit, Reason.exit_trend_invalidated, snap)
     if position.bars_held >= p.max_hold:
         return Decision(Action.exit, Reason.exit_time, snap)
-    return Decision(Action.hold, Reason.in_position_hold, snap)
+    return Decision(Action.hold, Reason.hold_in_position, snap)
 
 
 def compute_indicators(
@@ -118,6 +118,6 @@ def evaluate(
     if n < warmup(params):
         last = candles[-1]
         snap = Snapshot(last.close_time, last.close, None, None, None, None)
-        return Decision(Action.skip, Reason.no_data, snap)
+        return Decision(Action.skip, Reason.skip_no_data, snap)
     ef, es, et, at = compute_indicators(candles, params)
     return _decide(n - 1, ef, es, et, at, candles, position, params)
