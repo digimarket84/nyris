@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from nyris.api.routes import assets, health, market, portfolio, trades
+from nyris.api.routes import assets, health, market, portfolio, strategy, trades
 from nyris.core.config import settings
 from nyris.core.logging import configure_logging
 
@@ -19,6 +19,7 @@ app.include_router(assets.router, prefix=API_V1)
 app.include_router(trades.router, prefix=API_V1)
 app.include_router(portfolio.router, prefix=API_V1)
 app.include_router(market.router, prefix=API_V1)
+app.include_router(strategy.router, prefix=API_V1)
 
 # Dashboard statique (servi en same-origin, accès via tunnel SSH)
 app.mount("/ui", StaticFiles(directory="frontend", html=True), name="ui")
