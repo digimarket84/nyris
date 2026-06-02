@@ -16,7 +16,7 @@
   <main class="max-w-2xl mx-auto px-4 py-6">
     <div id="error-banner"></div>
 
-    <div x-data="newTradePage()" x-init="init()">
+    <div x-data="newTradePage()" x-init="init()" x-cloak>
       <h1 class="text-lg font-semibold text-slate-900 mb-4">Nouveau trade simulé</h1>
 
       <form @submit.prevent="submit()" class="bg-white rounded-lg border border-slate-200 p-5 space-y-4">

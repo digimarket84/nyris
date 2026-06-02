@@ -16,7 +16,7 @@
   <main class="max-w-6xl mx-auto px-4 py-6">
     <div id="error-banner"></div>
 
-    <div x-data="marketPage()" x-init="init()">
+    <div x-data="marketPage()" x-init="init()" x-cloak>
       <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
         <h1 class="text-lg font-semibold text-slate-900">Marché / Watchlist</h1>
         <div class="flex gap-2">
@@ -58,10 +58,13 @@
                     x-text="a.is_tradeable ? 'Oui' : 'Non'"></span>
                 </td>
                 <td class="px-3 py-2 text-slate-600" x-text="a.binance_symbol || '—'"></td>
-                <td class="px-3 py-2 text-right tnum" x-text="price(a.symbol) !== undefined ? fmt.eur(price(a.symbol)) : '—'"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="price(a.symbol) !== undefined ? fmt.priceEur(price(a.symbol)) : '—'"></td>
                 <td class="px-3 py-2 text-xs text-slate-400" x-text="fmt.dt(a.market_synced_at)"></td>
               </tr>
             </template>
+            <tr x-show="loading">
+              <td colspan="7" class="px-3 py-6 text-center text-slate-500"><span class="spinner"></span> Chargement…</td>
+            </tr>
             <tr x-show="!loading && assets.length === 0">
               <td colspan="7" class="px-3 py-6 text-center text-slate-400">Aucun actif.</td>
             </tr>

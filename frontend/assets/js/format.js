@@ -1,27 +1,52 @@
 // Helpers de formatage (affichage uniquement, ne modifie pas les valeurs API).
 (function () {
-  const eur = new Intl.NumberFormat("fr-FR", {
+  const eurFmt = new Intl.NumberFormat("fr-FR", {
     style: "currency",
     currency: "EUR",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-  const num = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 8 });
 
   const toNum = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
 
+  // #3 - décimales contextuelles : on coupe les zéros inutiles selon l'ordre de grandeur
+  function ctxMax(n) {
+    const a = Math.abs(n);
+    if (a >= 1000) return 2;
+    if (a >= 1) return 4;
+    if (a >= 0.01) return 6;
+    return 8;
+  }
+
   window.fmt = {
+    // Montants (capital, PnL) : toujours 2 décimales
     eur(v) {
       const n = toNum(v);
-      return n === null ? "—" : eur.format(n);
+      return n === null ? "—" : eurFmt.format(n);
+    },
+    // Prix unitaire en EUR : 2 décimales mini, plus si l'actif est "petit"
+    priceEur(v) {
+      const n = toNum(v);
+      if (n === null) return "—";
+      return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: Math.max(2, ctxMax(n)),
+      }).format(n);
+    },
+    // Nombre générique contextuel (quantités, prix bruts) — zéros inutiles coupés
+    price(v) {
+      const n = toNum(v);
+      if (n === null) return "—";
+      return new Intl.NumberFormat("fr-FR", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: ctxMax(n),
+      }).format(n);
     },
     pct(v) {
       const n = toNum(v);
       return n === null ? "—" : `${n.toFixed(2)} %`;
-    },
-    price(v) {
-      const n = toNum(v);
-      return n === null ? "—" : num.format(n);
     },
     dt(iso) {
       if (!iso) return "—";

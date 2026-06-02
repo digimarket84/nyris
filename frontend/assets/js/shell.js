@@ -7,6 +7,11 @@
     { href: "trades.html", label: "Historique" },
   ];
   const current = location.pathname.split("/").pop() || "index.html";
+  let bannerTimer = null;
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  }
 
   function renderHeader() {
     const el = document.getElementById("shell-header");
@@ -40,29 +45,47 @@
       const h = await window.api.getHealth();
       const ok = h.status === "ok" && h.database === "ok";
       const color = ok ? "bg-emerald-500" : "bg-red-500";
-      box.innerHTML = `<span class="inline-block w-2 h-2 rounded-full ${color}"></span><span>API ${h.status} · DB ${h.database}</span>`;
+      box.innerHTML = `<span class="inline-block w-2 h-2 rounded-full ${color}"></span><span>API ${esc(h.status)} · DB ${esc(h.database)}</span>`;
     } catch (e) {
       box.innerHTML = `<span class="inline-block w-2 h-2 rounded-full bg-red-500"></span><span>API injoignable</span>`;
     }
   }
 
+  function clearBanner() {
+    if (bannerTimer) {
+      clearTimeout(bannerTimer);
+      bannerTimer = null;
+    }
+    const el = document.getElementById("error-banner");
+    if (el) el.innerHTML = "";
+  }
+
+  // #2 - bannière fermable ; les infos (succès) s'effacent seules après 4 s
   function banner(kind, msg) {
     const el = document.getElementById("error-banner");
     if (!el) return;
+    if (bannerTimer) {
+      clearTimeout(bannerTimer);
+      bannerTimer = null;
+    }
     const styles =
       kind === "error"
         ? "border-red-200 bg-red-50 text-red-700"
         : "border-emerald-200 bg-emerald-50 text-emerald-700";
-    el.innerHTML = `<div class="mb-4 rounded-md border ${styles} px-4 py-3 text-sm">${msg}</div>`;
+    el.innerHTML = `<div class="mb-4 rounded-md border ${styles} px-4 py-3 text-sm flex items-start justify-between gap-3">
+        <span>${esc(msg)}</span>
+        <button type="button" aria-label="Fermer" onclick="window.shell.clearError()"
+          class="leading-none text-base opacity-60 hover:opacity-100">&times;</button>
+      </div>`;
+    if (kind === "info") {
+      bannerTimer = setTimeout(clearBanner, 4000);
+    }
   }
 
   window.shell = {
     showError: (msg) => banner("error", msg),
     showInfo: (msg) => banner("info", msg),
-    clearError: () => {
-      const el = document.getElementById("error-banner");
-      if (el) el.innerHTML = "";
-    },
+    clearError: clearBanner,
   };
 
   document.addEventListener("DOMContentLoaded", () => {

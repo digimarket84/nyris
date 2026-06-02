@@ -16,7 +16,7 @@
   <main class="max-w-6xl mx-auto px-4 py-6">
     <div id="error-banner"></div>
 
-    <div x-data="dashboardPage()" x-init="init()">
+    <div x-data="dashboardPage()" x-init="init()" x-cloak>
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-lg font-semibold text-slate-900">Dashboard</h1>
         <button @click="refresh()" :disabled="loading"
@@ -123,7 +123,7 @@
                   <tr class="border-t border-slate-100">
                     <td class="px-3 py-2 font-medium" x-text="p.symbol"></td>
                     <td class="px-3 py-2 text-slate-600" x-text="p.binance_symbol"></td>
-                    <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(p.price)"></td>
+                    <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(p.price)"></td>
                   </tr>
                 </template>
                 <tr x-show="prices.length === 0">
@@ -135,7 +135,7 @@
         </div>
       </template>
 
-      <p x-show="loading" class="text-slate-400 text-sm">Chargement…</p>
+      <p x-show="loading" class="text-slate-500 text-sm"><span class="spinner"></span> Chargement…</p>
     </div>
   </main>
 

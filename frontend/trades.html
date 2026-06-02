@@ -16,17 +16,17 @@
   <main class="max-w-6xl mx-auto px-4 py-6">
     <div id="error-banner"></div>
 
-    <div x-data="tradesPage()" x-init="init()">
+    <div x-data="tradesPage()" x-init="init()" x-cloak>
       <div class="flex items-center justify-between mb-4">
         <h1 class="text-lg font-semibold text-slate-900">Historique des trades</h1>
         <a href="new-trade.html" class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-700">+ Nouveau trade</a>
       </div>
 
-      <!-- Filtres -->
+      <!-- Filtres (selects = instantanés ; dates = bouton Filtrer) -->
       <div class="bg-white rounded-lg border border-slate-200 p-3 mb-4 grid grid-cols-2 md:grid-cols-6 gap-2 items-end text-sm">
         <div>
           <label class="block text-xs text-slate-500 mb-1">Statut</label>
-          <select x-model="filters.status" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+          <select x-model="filters.status" @change="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
             <option value="">Tous</option>
             <option value="open">open</option>
             <option value="closed">closed</option>
@@ -36,7 +36,7 @@
         </div>
         <div>
           <label class="block text-xs text-slate-500 mb-1">Actif</label>
-          <select x-model="filters.asset_id" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+          <select x-model="filters.asset_id" @change="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
             <option value="">Tous</option>
             <template x-for="a in assets" :key="a.id">
               <option :value="a.id" x-text="a.symbol"></option>
@@ -45,7 +45,7 @@
         </div>
         <div>
           <label class="block text-xs text-slate-500 mb-1">Tri</label>
-          <select x-model="filters.sort" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+          <select x-model="filters.sort" @change="applyFilters()" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
             <option value="opened_at:desc">Ouverture ↓</option>
             <option value="opened_at:asc">Ouverture ↑</option>
             <option value="closed_at:desc">Fermeture ↓</option>
@@ -61,14 +61,15 @@
           <label class="block text-xs text-slate-500 mb-1">Jusqu'à</label>
           <input type="datetime-local" x-model="filters.to" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
         </div>
-        <div>
-          <button @click="applyFilters()" class="w-full bg-slate-900 text-white px-3 py-1.5 rounded-md hover:bg-slate-700">Filtrer</button>
+        <div class="flex gap-2">
+          <button @click="applyFilters()" class="flex-1 bg-slate-900 text-white px-3 py-1.5 rounded-md hover:bg-slate-700">Filtrer</button>
+          <button @click="resetFilters()" class="border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-100">Reset</button>
         </div>
       </div>
 
       <!-- Table -->
       <div class="bg-white rounded-lg border border-slate-200 overflow-x-auto">
-        <table class="text-sm">
+        <table class="text-sm" style="min-width: 760px">
           <thead>
             <tr class="text-left text-xs font-medium text-slate-500 uppercase">
               <th class="px-3 py-2">#</th>
@@ -84,8 +85,11 @@
             </tr>
           </thead>
           <tbody>
+            <tr x-show="loading">
+              <td colspan="10" class="px-3 py-6 text-center text-slate-500"><span class="spinner"></span> Chargement…</td>
+            </tr>
             <template x-for="t in items" :key="t.id">
-              <tr class="border-t border-slate-100">
+              <tr class="border-t border-slate-100" x-show="!loading">
                 <td class="px-3 py-2 text-slate-500" x-text="t.id"></td>
                 <td class="px-3 py-2 font-medium" x-text="assetSymbol(t.asset_id)"></td>
                 <td class="px-3 py-2">
@@ -107,7 +111,10 @@
               </tr>
             </template>
             <tr x-show="!loading && items.length === 0">
-              <td colspan="10" class="px-3 py-6 text-center text-slate-400">Aucun trade.</td>
+              <td colspan="10" class="px-3 py-8 text-center text-slate-400">
+                Aucun trade pour ces filtres.
+                <a href="new-trade.html" class="text-slate-700 underline ml-1">Créer un trade</a>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -119,33 +126,42 @@
         <div class="flex gap-2 items-center">
           <button @click="prev()" :disabled="filters.offset === 0"
             class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">‹ Précédent</button>
-          <span class="tnum" x-text="`${filters.offset + 1}–${filters.offset + items.length}`"></span>
+          <span class="tnum" x-show="items.length" x-text="`${filters.offset + 1}–${filters.offset + items.length}`"></span>
           <button @click="next()" :disabled="!hasMore()"
             class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">Suivant ›</button>
         </div>
       </div>
 
-      <!-- Modal fermeture -->
-      <div x-show="closing" x-cloak class="fixed inset-0 bg-black/30 flex items-center justify-center p-4" @click.self="closing = null">
-        <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-5">
-          <h3 class="font-semibold text-slate-900 mb-3">Fermer le trade #<span x-text="closing?.id"></span></h3>
+      <!-- Modal fermeture (#7) -->
+      <div x-show="closing" x-cloak class="fixed inset-0 bg-black/30 flex items-center justify-center p-4 overflow-y-auto" @click.self="closing = null" @keydown.escape.window="closing = null">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-5 my-8">
+          <h3 class="font-semibold text-slate-900 mb-3">Fermer le trade #<span x-text="closing?.id"></span> <span class="text-slate-400 text-sm" x-text="closing ? assetSymbol(closing.asset_id) : ''"></span></h3>
           <label class="block text-sm font-medium text-slate-700 mb-1">Prix de sortie (EUR)</label>
-          <input x-model="closeForm.exit_price" type="number" step="0.00000001" min="0"
-            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tnum mb-3" placeholder="150.00" />
+          <div class="flex gap-2 mb-3">
+            <input x-ref="exitInput" x-model="closeForm.exit_price" type="number" step="0.00000001" min="0"
+              @keydown.enter.prevent="confirmClose()"
+              class="flex-1 border border-slate-300 rounded-md px-3 py-2 text-sm tnum" placeholder="150.00" />
+            <button type="button" @click="prefillExit()" :disabled="prefillingExit"
+              class="border border-slate-300 text-slate-700 px-3 py-2 rounded-md text-sm hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap">
+              <span x-text="prefillingExit ? '…' : 'Prix marché'"></span>
+            </button>
+          </div>
           <label class="block text-sm font-medium text-slate-700 mb-1">Taux frais sortie (optionnel)</label>
           <input x-model="closeForm.exit_fee_rate" type="number" step="0.0001" min="0" max="0.1"
+            @keydown.enter.prevent="confirmClose()"
             class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tnum mb-4" placeholder="0.001 (défaut 0,1 %)" />
           <div class="flex justify-end gap-2">
             <button @click="closing = null" class="border border-slate-300 px-3 py-1.5 rounded-md text-sm hover:bg-slate-100">Annuler</button>
-            <button @click="confirmClose()" :disabled="!closeForm.exit_price"
-              class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-700 disabled:opacity-50">Fermer</button>
+            <button @click="confirmClose()" :disabled="!closeForm.exit_price || submittingClose"
+              class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-700 disabled:opacity-50">
+              <span x-text="submittingClose ? 'Fermeture…' : 'Fermer'"></span>
+            </button>
           </div>
         </div>
       </div>
     </div>
   </main>
 
-  <style>[x-cloak]{display:none!important;}</style>
   <script>
     function tradesPage() {
       return {
@@ -155,6 +171,8 @@
         assets: [],
         closing: null,
         closeForm: { exit_price: "", exit_fee_rate: "" },
+        prefillingExit: false,
+        submittingClose: false,
         filters: { status: "", asset_id: "", sort: "opened_at:desc", limit: 25, offset: 0, from: "", to: "" },
         async init() {
           try {
@@ -197,6 +215,10 @@
           this.filters.offset = 0;
           this.load();
         },
+        resetFilters() {
+          this.filters = { status: "", asset_id: "", sort: "opened_at:desc", limit: 25, offset: 0, from: "", to: "" };
+          this.load();
+        },
         next() {
           if (this.hasMore()) {
             this.filters.offset += this.filters.limit;
@@ -215,8 +237,27 @@
         openClose(t) {
           this.closing = t;
           this.closeForm = { exit_price: "", exit_fee_rate: "" };
+          this.$nextTick(() => {
+            if (this.$refs.exitInput) this.$refs.exitInput.focus();
+          });
+        },
+        async prefillExit() {
+          if (!this.closing) return;
+          this.prefillingExit = true;
+          shell.clearError();
+          try {
+            const r = await api.getMarketPrice(this.closing.asset_id);
+            this.closeForm.exit_price = r.price;
+            shell.showInfo(`Prix marché ${r.binance_symbol} : ${fmt.priceEur(r.price)}`);
+          } catch (e) {
+            shell.showError("Prix marché indisponible : " + e.message);
+          } finally {
+            this.prefillingExit = false;
+          }
         },
         async confirmClose() {
+          if (!this.closeForm.exit_price || this.submittingClose) return;
+          this.submittingClose = true;
           shell.clearError();
           try {
             const body = { exit_price: this.closeForm.exit_price };
@@ -227,6 +268,8 @@
             await this.load();
           } catch (e) {
             shell.showError("Fermeture : " + e.message);
+          } finally {
+            this.submittingClose = false;
           }
         },
         async cancelTrade(t) {
