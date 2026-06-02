@@ -1,11 +1,27 @@
-"""Table des actifs suivis (watchlist)."""
+"""Table des actifs suivis (watchlist).
+
+Distinction importante :
+- ``symbol``          : ticker canonique utilisé par Nyris (ex. ATH, RENDER)
+- ``exchange_symbol`` : symbole côté exchange (peut différer selon la plateforme)
+- ``status``          : cycle de vie de suivi (active / watch_only / delisted)
+- ``is_tradeable``    : autorise ou non l'ouverture de trades simulés
+"""
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, String
+import enum
+
+from sqlalchemy import Boolean, String, Text
+from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from nyris.models.base import Base, TimestampMixin
+
+
+class AssetStatus(enum.StrEnum):
+    active = "active"
+    watch_only = "watch_only"
+    delisted = "delisted"
 
 
 class Asset(Base, TimestampMixin):
@@ -13,10 +29,18 @@ class Asset(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     symbol: Mapped[str] = mapped_column(String(20), unique=True, index=True, nullable=False)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    exchange_symbol: Mapped[str] = mapped_column(String(40), nullable=False)
     quote_currency: Mapped[str] = mapped_column(String(10), default="EUR", nullable=False)
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    status: Mapped[AssetStatus] = mapped_column(
+        SAEnum(AssetStatus, name="asset_status"),
+        default=AssetStatus.active,
+        nullable=False,
+        index=True,
+    )
+    is_tradeable: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    trades: Mapped[list[SimulatedTrade]] = relationship(  # noqa: F821
+    trades: Mapped[list["SimulatedTrade"]] = relationship(  # noqa: F821, UP037
         back_populates="asset"
     )

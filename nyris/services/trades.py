@@ -43,10 +43,16 @@ def list_trades(
 
 
 def create_trade(db: Session, data: TradeCreate) -> SimulatedTrade:
-    _get_asset_or_404(db, data.asset_id)
+    asset = _get_asset_or_404(db, data.asset_id)
+    if not asset.is_tradeable:
+        raise ConflictError(
+            f"Asset {asset.symbol} non tradable (status={asset.status.value})"
+        )
 
     entry_fee_rate = (
-        data.entry_fee_rate if data.entry_fee_rate is not None else settings.default_entry_fee_rate
+        data.entry_fee_rate
+        if data.entry_fee_rate is not None
+        else settings.default_entry_fee_rate
     )
     result = pnl.compute_entry(data.amount_invested, data.entry_price, entry_fee_rate)
 
@@ -72,10 +78,14 @@ def create_trade(db: Session, data: TradeCreate) -> SimulatedTrade:
 def close_trade(db: Session, trade_id: int, data: TradeClose) -> SimulatedTrade:
     trade = get_trade(db, trade_id)
     if trade.status != TradeStatus.open:
-        raise ConflictError(f"Impossible de fermer un trade au statut '{trade.status.value}'")
+        raise ConflictError(
+            f"Impossible de fermer un trade au statut '{trade.status.value}'"
+        )
 
     exit_fee_rate = (
-        data.exit_fee_rate if data.exit_fee_rate is not None else settings.default_exit_fee_rate
+        data.exit_fee_rate
+        if data.exit_fee_rate is not None
+        else settings.default_exit_fee_rate
     )
     result = pnl.compute_close(
         trade.amount_invested, trade.quantity, data.exit_price, exit_fee_rate
@@ -99,7 +109,9 @@ def close_trade(db: Session, trade_id: int, data: TradeClose) -> SimulatedTrade:
 def cancel_trade(db: Session, trade_id: int) -> SimulatedTrade:
     trade = get_trade(db, trade_id)
     if trade.status not in (TradeStatus.open, TradeStatus.draft):
-        raise ConflictError(f"Impossible d'annuler un trade au statut '{trade.status.value}'")
+        raise ConflictError(
+            f"Impossible d'annuler un trade au statut '{trade.status.value}'"
+        )
     trade.status = TradeStatus.cancelled
     db.commit()
     db.refresh(trade)

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from nyris.api.deps import get_db
-from nyris.models.asset import Asset
+from nyris.models.asset import Asset, AssetStatus
 from nyris.schemas.asset import AssetRead
 
 router = APIRouter(prefix="/assets", tags=["assets"])
@@ -15,10 +15,13 @@ router = APIRouter(prefix="/assets", tags=["assets"])
 
 @router.get("", response_model=list[AssetRead])
 def list_assets(
-    active_only: bool = Query(default=False),
+    tradeable_only: bool = Query(default=False, description="Ne renvoyer que les actifs tradables"),
+    status: AssetStatus | None = Query(default=None, description="Filtrer par statut"),
     db: Session = Depends(get_db),
 ) -> list[Asset]:
     stmt = select(Asset).order_by(Asset.symbol)
-    if active_only:
-        stmt = stmt.where(Asset.is_active.is_(True))
+    if tradeable_only:
+        stmt = stmt.where(Asset.is_tradeable.is_(True))
+    if status is not None:
+        stmt = stmt.where(Asset.status == status)
     return list(db.scalars(stmt).all())

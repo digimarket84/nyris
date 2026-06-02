@@ -29,7 +29,10 @@ def test_list_assets_contient_la_watchlist():
     r = client.get("/api/v1/assets")
     assert r.status_code == 200
     symbols = {a["symbol"] for a in r.json()}
-    assert {"BTC", "ETH", "SOL"}.issubset(symbols)
+    assert {"BTC", "ETH", "SOL", "RENDER", "ATH"}.issubset(symbols)
+    # anciens tickers retirés
+    assert "RNDR" not in symbols
+    assert "AETH" not in symbols
 
 
 def test_create_trade_validation_montant_invalide():
@@ -38,6 +41,17 @@ def test_create_trade_validation_montant_invalide():
         json={"asset_id": 1, "amount_invested": 0, "entry_price": 100},
     )
     assert r.status_code == 422
+
+
+def test_create_trade_refuse_si_actif_non_tradable():
+    assets = client.get("/api/v1/assets").json()
+    ath = next(a for a in assets if a["symbol"] == "ATH")
+    assert ath["is_tradeable"] is False
+    r = client.post(
+        "/api/v1/trades",
+        json={"asset_id": ath["id"], "amount_invested": "1000", "entry_price": "100"},
+    )
+    assert r.status_code == 409
 
 
 def test_flux_creation_puis_fermeture():
@@ -70,14 +84,12 @@ def test_flux_creation_puis_fermeture():
     assert Decimal(str(closed["pnl_net"])) == Decimal("497.00")
     assert Decimal(str(closed["pnl_percent"])) == Decimal("49.70")
 
-    # Fermer un trade déjà fermé -> 409
     again = client.post(
         f"/api/v1/trades/{trade_id}/close",
         json={"exit_price": "150"},
     )
     assert again.status_code == 409
 
-    # Nettoyage
     with SessionLocal() as db:
         obj = db.get(SimulatedTrade, trade_id)
         if obj is not None:
