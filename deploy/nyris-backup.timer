@@ -1,0 +1,10 @@
+[Unit]
+Description=Nyris - timer de sauvegarde PostgreSQL quotidienne
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+Unit=nyris-backup.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=Nyris - sauvegarde PostgreSQL (pg_dump)
+After=postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+ExecStart=/srv/nyris/scripts/backup_db.sh
+SyslogIdentifier=nyris-backup
+StandardOutput=journal
+StandardError=journal
+
+# Durcissement leger (/srv reste inscriptible pour ecrire les dumps)
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
