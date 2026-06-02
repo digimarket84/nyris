@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nyris — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <script defer src="assets/js/api.js"></script>
+  <script defer src="assets/js/format.js"></script>
+  <script defer src="assets/js/shell.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="shell-header"></div>
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <div id="error-banner"></div>
+
+    <div x-data="dashboardPage()" x-init="init()">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-semibold text-slate-900">Dashboard</h1>
+        <button @click="refresh()" :disabled="loading"
+          class="border border-slate-300 text-slate-700 px-3 py-1.5 rounded-md text-sm hover:bg-slate-100 disabled:opacity-50">
+          <span x-text="loading ? 'Chargement…' : 'Rafraîchir'"></span>
+        </button>
+      </div>
+
+      <template x-if="s">
+        <div>
+          <!-- KPI -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div class="bg-white rounded-lg border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">PnL net réalisé</div>
+              <div class="text-xl font-semibold tnum" :class="fmt.pnlClass(s.realized.pnl_net)" x-text="fmt.eur(s.realized.pnl_net)"></div>
+              <div class="text-xs tnum" :class="fmt.pnlClass(s.realized.pnl_net)" x-text="fmt.pct(s.realized.pnl_percent)"></div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Capital investi (réalisé)</div>
+              <div class="text-xl font-semibold tnum" x-text="fmt.eur(s.realized.invested)"></div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Valeur de sortie (nette)</div>
+              <div class="text-xl font-semibold tnum" x-text="fmt.eur(s.realized.exit_value)"></div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 p-4">
+              <div class="text-xs text-slate-500">Exposition ouverte</div>
+              <div class="text-xl font-semibold tnum" x-text="fmt.eur(s.open_exposure.invested)"></div>
+              <div class="text-xs text-slate-400"><span x-text="s.open_exposure.trades"></span> trade(s) ouvert(s)</div>
+            </div>
+          </div>
+
+          <!-- Compteurs + best/worst -->
+          <div class="grid md:grid-cols-2 gap-3 mb-6">
+            <div class="bg-white rounded-lg border border-slate-200 p-4 text-sm">
+              <div class="text-xs text-slate-500 mb-2 uppercase">Compteurs</div>
+              <div class="flex gap-4 flex-wrap tnum">
+                <span>Total : <b x-text="s.counts.total"></b></span>
+                <span>Ouverts : <b x-text="s.counts.open"></b></span>
+                <span>Fermés : <b x-text="s.counts.closed"></b></span>
+                <span>Annulés : <b x-text="s.counts.cancelled"></b></span>
+              </div>
+            </div>
+            <div class="bg-white rounded-lg border border-slate-200 p-4 text-sm">
+              <div class="text-xs text-slate-500 mb-2 uppercase">Meilleur / pire actif</div>
+              <div class="flex gap-6 flex-wrap">
+                <span>Meilleur :
+                  <template x-if="s.best_asset"><b><span x-text="s.best_asset.symbol"></span> <span class="tnum" :class="fmt.pnlClass(s.best_asset.pnl_net)" x-text="fmt.eur(s.best_asset.pnl_net)"></span></b></template>
+                  <template x-if="!s.best_asset"><span class="text-slate-400">—</span></template>
+                </span>
+                <span>Pire :
+                  <template x-if="s.worst_asset"><b><span x-text="s.worst_asset.symbol"></span> <span class="tnum" :class="fmt.pnlClass(s.worst_asset.pnl_net)" x-text="fmt.eur(s.worst_asset.pnl_net)"></span></b></template>
+                  <template x-if="!s.worst_asset"><span class="text-slate-400">—</span></template>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Par actif -->
+          <h2 class="text-sm font-semibold text-slate-700 mb-2">Performance par actif (trades fermés)</h2>
+          <div class="bg-white rounded-lg border border-slate-200 overflow-x-auto mb-6">
+            <table class="text-sm">
+              <thead>
+                <tr class="text-left text-xs font-medium text-slate-500 uppercase">
+                  <th class="px-3 py-2">Actif</th>
+                  <th class="px-3 py-2 text-right">Trades</th>
+                  <th class="px-3 py-2 text-right">Investi</th>
+                  <th class="px-3 py-2 text-right">Sortie nette</th>
+                  <th class="px-3 py-2 text-right">PnL net</th>
+                  <th class="px-3 py-2 text-right">PnL %</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="a in s.by_asset" :key="a.asset_id">
+                  <tr class="border-t border-slate-100">
+                    <td class="px-3 py-2 font-medium"><span x-text="a.symbol"></span> <span class="text-slate-400 text-xs" x-text="a.display_name"></span></td>
+                    <td class="px-3 py-2 text-right tnum" x-text="a.closed_trades"></td>
+                    <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(a.invested)"></td>
+                    <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(a.exit_value)"></td>
+                    <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(a.pnl_net)" x-text="fmt.eur(a.pnl_net)"></td>
+                    <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(a.pnl_net)" x-text="fmt.pct(a.pnl_percent)"></td>
+                  </tr>
+                </template>
+                <tr x-show="s.by_asset.length === 0">
+                  <td colspan="6" class="px-3 py-6 text-center text-slate-400">Aucun trade fermé.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Snapshot prix -->
+          <h2 class="text-sm font-semibold text-slate-700 mb-2">Prix marché (EUR)</h2>
+          <div class="bg-white rounded-lg border border-slate-200 overflow-x-auto">
+            <table class="text-sm">
+              <thead>
+                <tr class="text-left text-xs font-medium text-slate-500 uppercase">
+                  <th class="px-3 py-2">Actif</th>
+                  <th class="px-3 py-2">Paire</th>
+                  <th class="px-3 py-2 text-right">Prix (EUR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="p in prices" :key="p.asset_id">
+                  <tr class="border-t border-slate-100">
+                    <td class="px-3 py-2 font-medium" x-text="p.symbol"></td>
+                    <td class="px-3 py-2 text-slate-600" x-text="p.binance_symbol"></td>
+                    <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(p.price)"></td>
+                  </tr>
+                </template>
+                <tr x-show="prices.length === 0">
+                  <td colspan="3" class="px-3 py-6 text-center text-slate-400">Prix indisponibles.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+
+      <p x-show="loading" class="text-slate-400 text-sm">Chargement…</p>
+    </div>
+  </main>
+
+  <script>
+    function dashboardPage() {
+      return {
+        loading: true,
+        s: null,
+        prices: [],
+        async init() {
+          await this.refresh();
+        },
+        async refresh() {
+          this.loading = true;
+          shell.clearError();
+          try {
+            const [summary, p] = await Promise.all([
+              api.getPortfolioSummary(),
+              api.getMarketPrices().catch(() => ({ prices: [] })),
+            ]);
+            this.s = summary;
+            this.prices = p.prices || [];
+          } catch (e) {
+            shell.showError("Chargement dashboard : " + e.message);
+          } finally {
+            this.loading = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

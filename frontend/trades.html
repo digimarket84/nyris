@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nyris — Historique</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <script defer src="assets/js/api.js"></script>
+  <script defer src="assets/js/format.js"></script>
+  <script defer src="assets/js/shell.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="shell-header"></div>
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <div id="error-banner"></div>
+
+    <div x-data="tradesPage()" x-init="init()">
+      <div class="flex items-center justify-between mb-4">
+        <h1 class="text-lg font-semibold text-slate-900">Historique des trades</h1>
+        <a href="new-trade.html" class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-700">+ Nouveau trade</a>
+      </div>
+
+      <!-- Filtres -->
+      <div class="bg-white rounded-lg border border-slate-200 p-3 mb-4 grid grid-cols-2 md:grid-cols-6 gap-2 items-end text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Statut</label>
+          <select x-model="filters.status" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Tous</option>
+            <option value="open">open</option>
+            <option value="closed">closed</option>
+            <option value="cancelled">cancelled</option>
+            <option value="draft">draft</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Actif</label>
+          <select x-model="filters.asset_id" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Tous</option>
+            <template x-for="a in assets" :key="a.id">
+              <option :value="a.id" x-text="a.symbol"></option>
+            </template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Tri</label>
+          <select x-model="filters.sort" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="opened_at:desc">Ouverture ↓</option>
+            <option value="opened_at:asc">Ouverture ↑</option>
+            <option value="closed_at:desc">Fermeture ↓</option>
+            <option value="pnl_net:desc">PnL ↓</option>
+            <option value="pnl_net:asc">PnL ↑</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Depuis (ouverture)</label>
+          <input type="datetime-local" x-model="filters.from" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Jusqu'à</label>
+          <input type="datetime-local" x-model="filters.to" class="w-full border border-slate-300 rounded-md px-2 py-1.5" />
+        </div>
+        <div>
+          <button @click="applyFilters()" class="w-full bg-slate-900 text-white px-3 py-1.5 rounded-md hover:bg-slate-700">Filtrer</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-lg border border-slate-200 overflow-x-auto">
+        <table class="text-sm">
+          <thead>
+            <tr class="text-left text-xs font-medium text-slate-500 uppercase">
+              <th class="px-3 py-2">#</th>
+              <th class="px-3 py-2">Actif</th>
+              <th class="px-3 py-2">Statut</th>
+              <th class="px-3 py-2 text-right">Investi</th>
+              <th class="px-3 py-2 text-right">Entrée</th>
+              <th class="px-3 py-2 text-right">Sortie</th>
+              <th class="px-3 py-2 text-right">PnL net</th>
+              <th class="px-3 py-2 text-right">PnL %</th>
+              <th class="px-3 py-2">Ouvert</th>
+              <th class="px-3 py-2">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="t in items" :key="t.id">
+              <tr class="border-t border-slate-100">
+                <td class="px-3 py-2 text-slate-500" x-text="t.id"></td>
+                <td class="px-3 py-2 font-medium" x-text="assetSymbol(t.asset_id)"></td>
+                <td class="px-3 py-2">
+                  <span class="px-2 py-0.5 rounded text-xs font-medium" :class="statusClass(t.status)" x-text="t.status"></span>
+                </td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(t.amount_invested)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.price(t.entry_price)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="t.exit_price ? fmt.price(t.exit_price) : '—'"></td>
+                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_net)" x-text="t.pnl_net !== null ? fmt.eur(t.pnl_net) : '—'"></td>
+                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_net)" x-text="t.pnl_percent !== null ? fmt.pct(t.pnl_percent) : '—'"></td>
+                <td class="px-3 py-2 text-xs text-slate-400" x-text="fmt.dt(t.opened_at)"></td>
+                <td class="px-3 py-2 whitespace-nowrap">
+                  <button x-show="t.status === 'open'" @click="openClose(t)"
+                    class="text-emerald-700 hover:underline text-xs mr-2">Fermer</button>
+                  <button x-show="t.status === 'open' || t.status === 'draft'" @click="cancelTrade(t)"
+                    class="text-red-600 hover:underline text-xs">Annuler</button>
+                  <span x-show="t.status === 'closed' || t.status === 'cancelled'" class="text-slate-300 text-xs">—</span>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="!loading && items.length === 0">
+              <td colspan="10" class="px-3 py-6 text-center text-slate-400">Aucun trade.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between mt-3 text-sm text-slate-500">
+        <span x-text="`Total : ${total}`"></span>
+        <div class="flex gap-2 items-center">
+          <button @click="prev()" :disabled="filters.offset === 0"
+            class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">‹ Précédent</button>
+          <span class="tnum" x-text="`${filters.offset + 1}–${filters.offset + items.length}`"></span>
+          <button @click="next()" :disabled="!hasMore()"
+            class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">Suivant ›</button>
+        </div>
+      </div>
+
+      <!-- Modal fermeture -->
+      <div x-show="closing" x-cloak class="fixed inset-0 bg-black/30 flex items-center justify-center p-4" @click.self="closing = null">
+        <div class="bg-white rounded-lg shadow-lg w-full max-w-sm p-5">
+          <h3 class="font-semibold text-slate-900 mb-3">Fermer le trade #<span x-text="closing?.id"></span></h3>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Prix de sortie (EUR)</label>
+          <input x-model="closeForm.exit_price" type="number" step="0.00000001" min="0"
+            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tnum mb-3" placeholder="150.00" />
+          <label class="block text-sm font-medium text-slate-700 mb-1">Taux frais sortie (optionnel)</label>
+          <input x-model="closeForm.exit_fee_rate" type="number" step="0.0001" min="0" max="0.1"
+            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tnum mb-4" placeholder="0.001 (défaut 0,1 %)" />
+          <div class="flex justify-end gap-2">
+            <button @click="closing = null" class="border border-slate-300 px-3 py-1.5 rounded-md text-sm hover:bg-slate-100">Annuler</button>
+            <button @click="confirmClose()" :disabled="!closeForm.exit_price"
+              class="bg-slate-900 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-700 disabled:opacity-50">Fermer</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <style>[x-cloak]{display:none!important;}</style>
+  <script>
+    function tradesPage() {
+      return {
+        loading: true,
+        items: [],
+        total: 0,
+        assets: [],
+        closing: null,
+        closeForm: { exit_price: "", exit_fee_rate: "" },
+        filters: { status: "", asset_id: "", sort: "opened_at:desc", limit: 25, offset: 0, from: "", to: "" },
+        async init() {
+          try {
+            this.assets = await api.getAssets();
+          } catch (e) {
+            /* non bloquant */
+          }
+          await this.load();
+        },
+        isoOrEmpty(v) {
+          if (!v) return "";
+          const d = new Date(v);
+          return isNaN(d.getTime()) ? "" : d.toISOString();
+        },
+        async load() {
+          this.loading = true;
+          shell.clearError();
+          try {
+            const params = {
+              status: this.filters.status,
+              asset_id: this.filters.asset_id,
+              sort: this.filters.sort,
+              limit: this.filters.limit,
+              offset: this.filters.offset,
+            };
+            const f = this.isoOrEmpty(this.filters.from);
+            const t = this.isoOrEmpty(this.filters.to);
+            if (f) params.from = f;
+            if (t) params.to = t;
+            const r = await api.getTradesHistory(params);
+            this.items = r.items;
+            this.total = r.pagination.total;
+          } catch (e) {
+            shell.showError("Chargement historique : " + e.message);
+          } finally {
+            this.loading = false;
+          }
+        },
+        applyFilters() {
+          this.filters.offset = 0;
+          this.load();
+        },
+        next() {
+          if (this.hasMore()) {
+            this.filters.offset += this.filters.limit;
+            this.load();
+          }
+        },
+        prev() {
+          if (this.filters.offset > 0) {
+            this.filters.offset = Math.max(0, this.filters.offset - this.filters.limit);
+            this.load();
+          }
+        },
+        hasMore() {
+          return this.filters.offset + this.items.length < this.total;
+        },
+        openClose(t) {
+          this.closing = t;
+          this.closeForm = { exit_price: "", exit_fee_rate: "" };
+        },
+        async confirmClose() {
+          shell.clearError();
+          try {
+            const body = { exit_price: this.closeForm.exit_price };
+            if (this.closeForm.exit_fee_rate !== "") body.exit_fee_rate = this.closeForm.exit_fee_rate;
+            await api.closeTrade(this.closing.id, body);
+            this.closing = null;
+            shell.showInfo("Trade fermé.");
+            await this.load();
+          } catch (e) {
+            shell.showError("Fermeture : " + e.message);
+          }
+        },
+        async cancelTrade(t) {
+          if (!confirm(`Annuler le trade #${t.id} ?`)) return;
+          shell.clearError();
+          try {
+            await api.cancelTrade(t.id);
+            shell.showInfo("Trade annulé.");
+            await this.load();
+          } catch (e) {
+            shell.showError("Annulation : " + e.message);
+          }
+        },
+        assetSymbol(id) {
+          const a = this.assets.find((x) => x.id === id);
+          return a ? a.symbol : id;
+        },
+        statusClass(s) {
+          return s === "open"
+            ? "bg-blue-100 text-blue-700"
+            : s === "closed"
+              ? "bg-emerald-100 text-emerald-700"
+              : s === "cancelled"
+                ? "bg-slate-200 text-slate-600"
+                : "bg-amber-100 text-amber-700";
+        },
+      };
+    }
+  </script>
+</body>
+</html>

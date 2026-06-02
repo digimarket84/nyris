@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nyris — Nouveau trade</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <script defer src="assets/js/api.js"></script>
+  <script defer src="assets/js/format.js"></script>
+  <script defer src="assets/js/shell.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="shell-header"></div>
+  <main class="max-w-2xl mx-auto px-4 py-6">
+    <div id="error-banner"></div>
+
+    <div x-data="newTradePage()" x-init="init()">
+      <h1 class="text-lg font-semibold text-slate-900 mb-4">Nouveau trade simulé</h1>
+
+      <form @submit.prevent="submit()" class="bg-white rounded-lg border border-slate-200 p-5 space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Actif</label>
+          <select x-model="form.asset_id" required
+            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm">
+            <option value="">— choisir —</option>
+            <template x-for="a in assets" :key="a.id">
+              <option :value="a.id" x-text="`${a.symbol} — ${a.display_name}`"></option>
+            </template>
+          </select>
+          <p class="text-xs text-slate-400 mt-1">Seuls les actifs tradables sont listés.</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Montant investi (EUR)</label>
+          <input x-model="form.amount_invested" type="number" step="0.01" min="0" required
+            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tnum" placeholder="1000.00" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Prix d'entrée (EUR)</label>
+          <div class="flex gap-2">
+            <input x-model="form.entry_price" type="number" step="0.00000001" min="0" required
+              class="flex-1 border border-slate-300 rounded-md px-3 py-2 text-sm tnum" placeholder="100.00" />
+            <button type="button" @click="prefill()" :disabled="prefilling || !form.asset_id"
+              class="border border-slate-300 text-slate-700 px-3 py-2 rounded-md text-sm hover:bg-slate-100 disabled:opacity-50 whitespace-nowrap">
+              <span x-text="prefilling ? '…' : 'Prix marché'"></span>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Taux de frais d'entrée (optionnel)</label>
+          <input x-model="form.entry_fee_rate" type="number" step="0.0001" min="0" max="0.1"
+            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm tnum" placeholder="0.001 (défaut 0,1 %)" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1">Notes (optionnel)</label>
+          <textarea x-model="form.notes" rows="2"
+            class="w-full border border-slate-300 rounded-md px-3 py-2 text-sm"></textarea>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button type="submit" :disabled="submitting"
+            class="bg-slate-900 text-white px-4 py-2 rounded-md text-sm hover:bg-slate-700 disabled:opacity-50">
+            <span x-text="submitting ? 'Création…' : 'Créer le trade'"></span>
+          </button>
+          <a href="trades.html" class="text-sm text-slate-500 hover:underline">Voir l'historique →</a>
+        </div>
+      </form>
+
+      <template x-if="created">
+        <div class="mt-4 bg-white rounded-lg border border-slate-200 p-4 text-sm">
+          <div class="font-medium text-slate-900 mb-1">Trade #<span x-text="created.id"></span> créé (statut <span x-text="created.status"></span>)</div>
+          <div class="tnum text-slate-600">
+            Quantité : <span x-text="fmt.price(created.quantity)"></span> ·
+            Frais entrée : <span x-text="fmt.eur(created.entry_fee_amount)"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </main>
+
+  <script>
+    function newTradePage() {
+      return {
+        assets: [],
+        form: { asset_id: "", amount_invested: "", entry_price: "", entry_fee_rate: "", notes: "" },
+        submitting: false,
+        prefilling: false,
+        created: null,
+        async init() {
+          try {
+            this.assets = await api.getAssets({ tradeable_only: true });
+          } catch (e) {
+            shell.showError("Chargement actifs : " + e.message);
+          }
+        },
+        async prefill() {
+          if (!this.form.asset_id) {
+            shell.showError("Choisis un actif d'abord.");
+            return;
+          }
+          this.prefilling = true;
+          shell.clearError();
+          try {
+            const r = await api.getMarketPrice(this.form.asset_id);
+            this.form.entry_price = r.price;
+            shell.showInfo(`Prix marché ${r.binance_symbol} : ${fmt.eur(r.price)}`);
+          } catch (e) {
+            shell.showError("Prix marché indisponible : " + e.message);
+          } finally {
+            this.prefilling = false;
+          }
+        },
+        async submit() {
+          this.submitting = true;
+          shell.clearError();
+          this.created = null;
+          try {
+            const body = {
+              asset_id: Number(this.form.asset_id),
+              amount_invested: this.form.amount_invested,
+              entry_price: this.form.entry_price,
+            };
+            if (this.form.entry_fee_rate !== "") body.entry_fee_rate = this.form.entry_fee_rate;
+            if (this.form.notes !== "") body.notes = this.form.notes;
+            const t = await api.createTrade(body);
+            this.created = t;
+            shell.showInfo(`Trade #${t.id} créé.`);
+            this.form.amount_invested = "";
+            this.form.entry_price = "";
+            this.form.notes = "";
+          } catch (e) {
+            shell.showError("Création : " + e.message);
+          } finally {
+            this.submitting = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>
