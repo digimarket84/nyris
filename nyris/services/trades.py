@@ -1,18 +1,36 @@
-"""Logique métier des trades simulés : créer, fermer, annuler, lister."""
+"""Logique métier des trades simulés : créer, fermer, annuler, lister, historiser."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from nyris.core.config import settings
 from nyris.core.exceptions import ConflictError, NotFoundError
 from nyris.models.asset import Asset
 from nyris.models.simulated_trade import SimulatedTrade, TradeStatus
+from nyris.schemas.history import HistoryDateField, HistorySort, TradeHistoryFilters
 from nyris.schemas.trade import TradeClose, TradeCreate
 from nyris.services import pnl
+
+# Mapping filtre/tri -> colonnes (whitelist : pas de tri dynamique arbitraire)
+_DATE_COLUMNS = {
+    HistoryDateField.opened_at: SimulatedTrade.opened_at,
+    HistoryDateField.closed_at: SimulatedTrade.closed_at,
+    HistoryDateField.created_at: SimulatedTrade.created_at,
+}
+_SORT_COLUMNS = {
+    HistorySort.opened_at_desc: SimulatedTrade.opened_at.desc(),
+    HistorySort.opened_at_asc: SimulatedTrade.opened_at.asc(),
+    HistorySort.closed_at_desc: SimulatedTrade.closed_at.desc(),
+    HistorySort.closed_at_asc: SimulatedTrade.closed_at.asc(),
+    HistorySort.pnl_net_desc: SimulatedTrade.pnl_net.desc(),
+    HistorySort.pnl_net_asc: SimulatedTrade.pnl_net.asc(),
+    HistorySort.id_desc: SimulatedTrade.id.desc(),
+    HistorySort.id_asc: SimulatedTrade.id.asc(),
+}
 
 
 def _get_asset_or_404(db: Session, asset_id: int) -> Asset:
@@ -35,11 +53,43 @@ def list_trades(
     limit: int = 100,
     offset: int = 0,
 ) -> list[SimulatedTrade]:
+    """Liste simple (endpoint historique existant inchangé)."""
     stmt = select(SimulatedTrade).order_by(SimulatedTrade.id.desc())
     if status is not None:
         stmt = stmt.where(SimulatedTrade.status == status)
     stmt = stmt.limit(limit).offset(offset)
     return list(db.scalars(stmt).all())
+
+
+def list_history(
+    db: Session, filters: TradeHistoryFilters
+) -> tuple[list[SimulatedTrade], int]:
+    """Historique filtré/paginé. Retourne (items, total) — total hors limit/offset."""
+    conditions = []
+    date_col = _DATE_COLUMNS[filters.date_field]
+    if filters.from_ is not None:
+        conditions.append(date_col >= filters.from_)
+    if filters.to is not None:
+        conditions.append(date_col < filters.to)  # borne haute exclue [from, to)
+    if filters.asset_id is not None:
+        conditions.append(SimulatedTrade.asset_id == filters.asset_id)
+    if filters.status is not None:
+        conditions.append(SimulatedTrade.status == filters.status)
+
+    count_stmt = select(func.count()).select_from(SimulatedTrade)
+    items_stmt = select(SimulatedTrade)
+    if conditions:
+        count_stmt = count_stmt.where(*conditions)
+        items_stmt = items_stmt.where(*conditions)
+
+    total = int(db.scalar(count_stmt) or 0)
+    items_stmt = (
+        items_stmt.order_by(_SORT_COLUMNS[filters.sort])
+        .limit(filters.limit)
+        .offset(filters.offset)
+    )
+    items = list(db.scalars(items_stmt).all())
+    return items, total
 
 
 def create_trade(db: Session, data: TradeCreate) -> SimulatedTrade:

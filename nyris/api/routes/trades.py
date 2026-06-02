@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from nyris.api.deps import get_db
 from nyris.core.exceptions import ConflictError, NotFoundError
 from nyris.models.simulated_trade import TradeStatus
+from nyris.schemas.history import TradeHistoryFilters, TradeHistoryPage
 from nyris.schemas.trade import TradeClose, TradeCreate, TradeRead
 from nyris.services import trades as trades_service
 
@@ -32,6 +35,33 @@ def list_trades(
     db: Session = Depends(get_db),
 ):
     return trades_service.list_trades(db, status=status_filter, limit=limit, offset=offset)
+
+
+# IMPORTANT : déclarer /history AVANT /{trade_id} (sinon "history" matche {trade_id})
+@router.get("/history", response_model=TradeHistoryPage)
+def trades_history(
+    filters: Annotated[TradeHistoryFilters, Query()],
+    db: Session = Depends(get_db),
+):
+    items, total = trades_service.list_history(db, filters)
+    return {
+        "items": items,
+        "pagination": {
+            "total": total,
+            "limit": filters.limit,
+            "offset": filters.offset,
+            "returned": len(items),
+            "has_more": filters.offset + len(items) < total,
+        },
+        "filters": {
+            "from": filters.from_,
+            "to": filters.to,
+            "asset_id": filters.asset_id,
+            "status": filters.status,
+            "date_field": filters.date_field,
+            "sort": filters.sort,
+        },
+    }
 
 
 @router.get("/{trade_id}", response_model=TradeRead)

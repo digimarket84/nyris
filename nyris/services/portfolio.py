@@ -1,13 +1,17 @@
-"""Agrégation du portefeuille simulé.
+"""Agrégation du portefeuille simulé (filtrable par période et par actif).
 
-Stratégie : agrégation côté base (count/sum), pourcentages et arrondis calculés
-en Python avec Decimal (jamais en SQL). Le PnL réalisé ne compte que les trades
-fermés ; les trades ouverts sont isolés dans `open_exposure` ; les annulés sont
-exclus de tous les montants.
+Sémantique validée :
+- realized.* / by_asset / best/worst : trades `closed` dans la fenêtre [from, to)
+  sur `closed_at` (+ filtre asset).
+- open_exposure.* : snapshot COURANT des trades `open` (filtre asset seulement,
+  jamais borné par from/to).
+- draft & cancelled : exclus des montants.
+- résultat vide => zéros / null (jamais d'erreur).
 """
 
 from __future__ import annotations
 
+from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import func, select
@@ -24,22 +28,28 @@ def _pct(pnl_net: Decimal, invested: Decimal) -> Decimal | None:
     return round_pct(pnl_net / invested * Decimal(100))
 
 
-def build_summary(db: Session) -> dict:
-    # --- Comptes par statut ---
-    counts = {status.value: 0 for status in TradeStatus}
-    for status, n in db.execute(
-        select(SimulatedTrade.status, func.count()).group_by(SimulatedTrade.status)
-    ).all():
-        counts[status.value] = int(n)
-    total = sum(counts.values())
+def build_summary(
+    db: Session,
+    from_: datetime | None = None,
+    to: datetime | None = None,
+    asset_id: int | None = None,
+) -> dict:
+    asset_cond = [SimulatedTrade.asset_id == asset_id] if asset_id is not None else []
 
-    # --- Réalisé (trades fermés) ---
-    inv, exit_value, pnl = db.execute(
+    # Trades réalisés (closed) dans la fenêtre closed_at + filtre actif
+    closed_cond = [*asset_cond, SimulatedTrade.status == TradeStatus.closed]
+    if from_ is not None:
+        closed_cond.append(SimulatedTrade.closed_at >= from_)
+    if to is not None:
+        closed_cond.append(SimulatedTrade.closed_at < to)
+
+    closed_count, inv, exit_value, pnl = db.execute(
         select(
+            func.count(),
             func.coalesce(func.sum(SimulatedTrade.amount_invested), 0),
             func.coalesce(func.sum(SimulatedTrade.exit_net_value), 0),
             func.coalesce(func.sum(SimulatedTrade.pnl_net), 0),
-        ).where(SimulatedTrade.status == TradeStatus.closed)
+        ).where(*closed_cond)
     ).one()
     inv, exit_value, pnl = Decimal(inv), Decimal(exit_value), Decimal(pnl)
     realized = {
@@ -49,16 +59,27 @@ def build_summary(db: Session) -> dict:
         "pnl_percent": _pct(pnl, inv),
     }
 
-    # --- Exposition ouverte (trades ouverts) ---
-    open_inv, open_count = db.execute(
+    # Comptes par statut (filtre actif, état courant) ; closed = compte fenêtré
+    counts = {status.value: 0 for status in TradeStatus}
+    status_stmt = select(SimulatedTrade.status, func.count()).group_by(SimulatedTrade.status)
+    if asset_cond:
+        status_stmt = status_stmt.where(*asset_cond)
+    for status, n in db.execute(status_stmt).all():
+        counts[status.value] = int(n)
+    counts["closed"] = int(closed_count)
+    total = sum(counts.values())
+
+    # Exposition ouverte : snapshot courant (filtre actif uniquement)
+    open_cond = [*asset_cond, SimulatedTrade.status == TradeStatus.open]
+    open_inv, open_n = db.execute(
         select(
             func.coalesce(func.sum(SimulatedTrade.amount_invested), 0),
             func.count(),
-        ).where(SimulatedTrade.status == TradeStatus.open)
+        ).where(*open_cond)
     ).one()
-    open_exposure = {"invested": round_money(Decimal(open_inv)), "trades": int(open_count)}
+    open_exposure = {"invested": round_money(Decimal(open_inv)), "trades": int(open_n)}
 
-    # --- Stats par actif (trades fermés) ---
+    # Stats par actif (closed, fenêtre)
     by_asset: list[dict] = []
     rows = db.execute(
         select(
@@ -71,7 +92,7 @@ def build_summary(db: Session) -> dict:
             func.coalesce(func.sum(SimulatedTrade.pnl_net), 0),
         )
         .join(SimulatedTrade, SimulatedTrade.asset_id == Asset.id)
-        .where(SimulatedTrade.status == TradeStatus.closed)
+        .where(*closed_cond)
         .group_by(Asset.id, Asset.symbol, Asset.display_name)
         .order_by(Asset.symbol)
     ).all()
@@ -90,7 +111,6 @@ def build_summary(db: Session) -> dict:
             }
         )
 
-    # --- Meilleur / pire actif (par PnL net €) ---
     best_asset = worst_asset = None
     if by_asset:
         best = max(by_asset, key=lambda x: x["pnl_net"])
@@ -108,6 +128,7 @@ def build_summary(db: Session) -> dict:
 
     return {
         "currency": "EUR",
+        "filters": {"from": from_, "to": to, "asset_id": asset_id, "date_field": "closed_at"},
         "counts": {
             "total": total,
             "draft": counts["draft"],

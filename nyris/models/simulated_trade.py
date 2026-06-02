@@ -6,7 +6,7 @@ import enum
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, func
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,10 @@ _PCT = Numeric(9, 4)
 
 class SimulatedTrade(Base, TimestampMixin):
     __tablename__ = "simulated_trades"
+    __table_args__ = (
+        # Accélère l'agrégation par actif/statut
+        Index("ix_simulated_trades_asset_status", "asset_id", "status"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     asset_id: Mapped[int] = mapped_column(ForeignKey("assets.id"), index=True, nullable=False)
@@ -60,11 +64,13 @@ class SimulatedTrade(Base, TimestampMixin):
     pnl_net: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
     pnl_percent: Mapped[Decimal | None] = mapped_column(_PCT, nullable=True)
 
-    # --- Métadonnées ---
+    # --- Métadonnées (opened_at/closed_at indexés pour les filtres période) ---
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     opened_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
-    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
 
-    asset: Mapped[Asset] = relationship(back_populates="trades")  # noqa: F821
+    asset: Mapped["Asset"] = relationship(back_populates="trades")  # noqa: F821, UP037
