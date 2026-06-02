@@ -1,0 +1,107 @@
+"""Moteur de décision PUR et déterministe.
+
+`evaluate()` ne dépend que des bougies fournies (clôturées), de l'état de
+position et des paramètres. Aucune dépendance à l'heure système : le temps
+provient uniquement des timestamps des bougies. Mêmes données => même décision.
+"""
+
+from __future__ import annotations
+
+from decimal import Decimal
+
+from nyris.strategy.indicators import atr, ema
+from nyris.strategy.models import (
+    Action,
+    Candle,
+    Decision,
+    PositionState,
+    Reason,
+    Snapshot,
+    StrategyParams,
+)
+
+
+def _d(v: float | None) -> Decimal | None:
+    return None if v is None else Decimal(str(v))
+
+
+def _price(v: float) -> Decimal:
+    return Decimal(str(v)).quantize(Decimal("0.00000001"))
+
+
+def _snapshot(candles: list[Candle], ef=None, es=None, et=None, at=None) -> Snapshot:
+    last = candles[-1]
+    return Snapshot(
+        candle_close_time=last.close_time,
+        close=last.close,
+        ema_fast=_d(ef),
+        ema_slow=_d(es),
+        ema_trend=_d(et),
+        atr=_d(at),
+    )
+
+
+def evaluate(
+    candles: list[Candle], position: PositionState | None, params: StrategyParams
+) -> Decision:
+    """Décide pour UN actif, sur la dernière bougie clôturée de `candles`."""
+    p = params
+    n = len(candles)
+    warmup = max(p.ema_trend, p.ema_slow, p.atr_period) + 2
+    if n < warmup:
+        return Decision(Action.skip, Reason.no_data, _snapshot(candles))
+
+    closes = [float(c.close) for c in candles]
+    highs = [float(c.high) for c in candles]
+    lows = [float(c.low) for c in candles]
+
+    ef = ema(closes, p.ema_fast)
+    es = ema(closes, p.ema_slow)
+    et = ema(closes, p.ema_trend)
+    at = atr(highs, lows, closes, p.atr_period)
+
+    i = n - 1
+    snap = _snapshot(candles, ef[i], es[i], et[i], at[i])
+    close = closes[i]
+
+    if None in (ef[i], es[i], et[i], at[i], ef[i - 1], es[i - 1]):
+        return Decision(Action.skip, Reason.no_data, snap)
+
+    if position is None:
+        trend_ok = close > et[i]
+        cross_up = ef[i - 1] <= es[i - 1] and ef[i] > es[i]
+        if not trend_ok:
+            return Decision(Action.hold, Reason.flat_no_trend, snap)
+        if not cross_up:
+            return Decision(Action.hold, Reason.flat_no_cross, snap)
+        # niveaux
+        stop_f = close - p.atr_stop_mult * at[i]
+        min_stop = close * (1.0 - p.max_stop_pct)  # risque plafonné
+        if stop_f < min_stop:
+            stop_f = min_stop
+        risk = close - stop_f
+        tp_f = close + p.reward_r * risk
+        return Decision(
+            Action.enter,
+            Reason.enter_signal,
+            snap,
+            entry=candles[i].close,
+            stop=_price(stop_f),
+            take_profit=_price(tp_f),
+        )
+
+    # En position : sorties par ordre de priorité
+    stop = float(position.stop)
+    tp = float(position.take_profit)
+    if close <= stop:
+        return Decision(Action.exit, Reason.exit_stop, snap)
+    if close >= tp:
+        return Decision(Action.exit, Reason.exit_take_profit, snap)
+    cross_down = ef[i - 1] >= es[i - 1] and ef[i] < es[i]
+    if cross_down:
+        return Decision(Action.exit, Reason.exit_inverse, snap)
+    if close < et[i]:
+        return Decision(Action.exit, Reason.exit_trend_invalidated, snap)
+    if position.bars_held >= p.max_hold:
+        return Decision(Action.exit, Reason.exit_time, snap)
+    return Decision(Action.hold, Reason.in_position_hold, snap)

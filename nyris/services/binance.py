@@ -32,6 +32,7 @@ class BinanceSymbolNotFound(BinanceError):
 
 _PRICE_PATH = "/api/v3/ticker/price"
 _EXCHANGE_INFO_PATH = "/api/v3/exchangeInfo"
+_KLINES_PATH = "/api/v3/klines"
 
 
 def _timeout() -> httpx.Timeout:
@@ -125,3 +126,11 @@ def get_exchange_info() -> dict[str, dict]:
         except KeyError:
             continue
     return out
+
+
+def get_klines(symbol: str, interval: str, limit: int = 1000) -> list[list]:
+    """Bougies OHLCV (tableau de tableaux Binance). Public, sans clé."""
+    data = _get(_KLINES_PATH, params={"symbol": symbol, "interval": interval, "limit": limit})
+    if not isinstance(data, list):
+        raise BinanceBadResponse("Réponse klines inattendue")
+    return data
