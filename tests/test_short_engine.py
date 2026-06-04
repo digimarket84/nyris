@@ -64,10 +64,11 @@ def test_exit_short_take_profit():
     assert d.action == Action.exit and d.reason == ShortReason.exit_short_take_profit
 
 
-def test_exit_short_trend_recovered_legacy():
+def test_exit_short_reclaim_legacy_uptrend():
+    # en hausse, le prix repasse au-dessus de l'EMA pullback -> reclaim (prioritaire)
     pos = PositionState(Decimal("100"), Decimal("1e9"), Decimal("0"), 1)
     d = evaluate_short(mk([100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110]), pos, P)
-    assert d.action == Action.exit and d.reason == ShortReason.exit_short_trend_recovered
+    assert d.action == Action.exit and d.reason == ShortReason.exit_short_reclaim
 
 
 def test_no_time_exit_even_beyond_max_hold():
