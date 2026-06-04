@@ -21,8 +21,9 @@ class ShortReason(enum.StrEnum):
     enter_short_signal = "enter_short_signal"
     exit_short_stop = "exit_short_stop"
     exit_short_take_profit = "exit_short_take_profit"
+    exit_short_reclaim = "exit_short_reclaim"  # prix reprend l'EMA fadée = mvt cassé
     exit_short_trend_recovered = "exit_short_trend_recovered"
-    exit_short_time = "exit_short_time"
+    exit_short_time = "exit_short_time"  # conservé (taxonomie) mais plus émis
     skip_blocked_max_positions = "skip_blocked_max_positions"
     skip_blocked_exposure = "skip_blocked_exposure"
     skip_blocked_cooldown = "skip_blocked_cooldown"

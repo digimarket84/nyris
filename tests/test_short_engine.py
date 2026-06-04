@@ -70,10 +70,19 @@ def test_exit_short_trend_recovered_legacy():
     assert d.action == Action.exit and d.reason == ShortReason.exit_short_trend_recovered
 
 
-def test_exit_short_time():
-    pos = PositionState(Decimal("100"), Decimal("1e9"), Decimal("0"), P.max_hold)
+def test_no_time_exit_even_beyond_max_hold():
+    # plus de sortie sur durée : tenu très longtemps sans stop/TP/signal -> on HOLD
+    pos = PositionState(Decimal("100"), Decimal("1e9"), Decimal("0"), P.max_hold * 100)
     d = evaluate_short(mk([100] * 12), pos, P)
-    assert d.action == Action.exit and d.reason == ShortReason.exit_short_time
+    assert d.action == Action.hold and d.reason == ShortReason.hold_in_position
+
+
+def test_exit_short_reclaim_on_movement():
+    # signal de mouvement : le prix reprend l'EMA fadée (close > ema_pullback) -> sortie
+    pos = PositionState(Decimal("100"), Decimal("1e9"), Decimal("0"), 1)
+    candles = mk([100] * 11 + [106])  # dernière bougie repasse au-dessus de l'EMA(3)
+    d = evaluate_short(candles, pos, P, context_bearish=True, context_value=130.0)
+    assert d.action == Action.exit and d.reason == ShortReason.exit_short_reclaim
 
 
 def test_hold_in_position():

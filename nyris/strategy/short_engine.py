@@ -115,8 +115,10 @@ def evaluate_short(
         return Decision(Action.exit, ShortReason.exit_short_stop, snap)
     if close <= tp:
         return Decision(Action.exit, ShortReason.exit_short_take_profit, snap)
+    # signal de mouvement : le prix reprend l'EMA fadée -> la jambe baissière est cassée
+    if close > ep[i]:
+        return Decision(Action.exit, ShortReason.exit_short_reclaim, snap)
     if recovered:
         return Decision(Action.exit, ShortReason.exit_short_trend_recovered, snap)
-    if position.bars_held >= params.max_hold:
-        return Decision(Action.exit, ShortReason.exit_short_time, snap)
+    # plus de sortie sur durée : on tient tant que stop/TP/signal de mouvement non atteints
     return Decision(Action.hold, ShortReason.hold_in_position, snap)
