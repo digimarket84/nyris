@@ -58,6 +58,8 @@
     postMarketSync: () => request("POST", "/api/v1/market/sync"),
     getPortfolioSummary: (params) => request("GET", "/api/v1/portfolio/summary" + qs(params)),
     getStrategyDecisions: (params) => request("GET", "/api/v1/strategy/decisions" + qs(params)),
+    getShortTrades: (params) => request("GET", "/api/v1/short/trades" + qs(params)),
+    getShortTradesStats: (params) => request("GET", "/api/v1/short/trades/stats" + qs(params)),
     getTradesHistory: (params) => request("GET", "/api/v1/trades/history" + qs(params)),
     createTrade: (body) => request("POST", "/api/v1/trades", body),
     closeTrade: (id, body) => request("POST", `/api/v1/trades/${id}/close`, body),

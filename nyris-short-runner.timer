@@ -1,0 +1,13 @@
+[Unit]
+Description=Nyris - timer challenger SHORT V2 (execution 1m, multi-timeframe)
+
+[Timer]
+# Execution 1m : on evalue chaque bougie 1m fermee. Le lock fcntl empeche tout
+# recouvrement si un cycle deborde. AccuracySec faible pour coller a la minute.
+OnCalendar=*-*-* *:*:00 UTC
+AccuracySec=5s
+Persistent=false
+Unit=nyris-short-runner.service
+
+[Install]
+WantedBy=timers.target

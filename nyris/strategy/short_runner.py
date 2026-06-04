@@ -1,4 +1,10 @@
-"""Runner challenger SHORT (oneshot, paper-only) — totalement parallèle au baseline.
+"""Runner challenger SHORT V2 (oneshot, paper-only) — totalement parallèle au baseline.
+
+Stratégie multi-timeframe :
+  - contexte de tendance sur `context_timeframe` (1h) :
+    baissier si close_1h < EMA(context_ema)_1h ;
+  - signal + exécution sur `timeframe` (1m) : rejet de l'EMA pullback en contexte baissier ;
+  - garde-fou volatilité (bande ATR%/bougie) pour éviter le bruit et les spikes.
 
 Isolation : table `short_trades` (jamais `simulated_trades`), lock dédié, run_id
 dédié, logs dédiés, params_key short. Réutilise les briques pures + le recorder
@@ -25,18 +31,28 @@ from nyris.models.strategy_decision import StrategyDecision
 from nyris.services import candles as candles_service
 from nyris.services.binance import BinanceError
 from nyris.strategy import short_pnl
+from nyris.strategy.indicators import ema
 from nyris.strategy.models import Action, PositionState
 from nyris.strategy.recorder import build_decision_record, evaluated_at_from_candle
-from nyris.strategy.short_engine import evaluate_short, warmup
+from nyris.strategy.short_engine import evaluate_short, exec_warmup
 from nyris.strategy.short_models import ShortParams, ShortReason
 
 logger = logging.getLogger("nyris.short_runner")
 
 SHORT = ShortParams()
-CANDLE_LIMIT = 300
+EXEC_LIMIT = 320  # bougies 1m (exécution)
 LOCK_PATH = "/srv/nyris/short-runner.lock"
 
-_TF_HOURS = {"1h": 1.0, "2h": 2.0, "4h": 4.0, "1d": 24.0}
+_TF_HOURS = {
+    "1m": 1.0 / 60,
+    "5m": 5.0 / 60,
+    "15m": 0.25,
+    "30m": 0.5,
+    "1h": 1.0,
+    "2h": 2.0,
+    "4h": 4.0,
+    "1d": 24.0,
+}
 
 
 class ShortRunnerBusy(Exception):
@@ -64,17 +80,14 @@ def _tf_hours(tf: str) -> float:
 
 # ---- lectures DB (table short_trades UNIQUEMENT) ----
 def _decision_exists(db: Session, asset_id: int, params: ShortParams, cct: int) -> bool:
-    return (
-        db.scalar(
-            select(StrategyDecision.id).where(
-                StrategyDecision.asset_id == asset_id,
-                StrategyDecision.timeframe == params.timeframe,
-                StrategyDecision.candle_close_time == cct,
-                StrategyDecision.params_key == params.key(),
-            )
+    return db.scalar(
+        select(StrategyDecision.id).where(
+            StrategyDecision.asset_id == asset_id,
+            StrategyDecision.timeframe == params.timeframe,
+            StrategyDecision.candle_close_time == cct,
+            StrategyDecision.params_key == params.key(),
         )
-        is not None
-    )
+    ) is not None
 
 
 def _open_short(db: Session, asset_id: int) -> ShortTrade | None:
@@ -110,6 +123,19 @@ def _last_closed(db: Session, asset_id: int) -> ShortTrade | None:
     )
 
 
+# ---- contexte (timeframe supérieur) ----
+def _context_bearish(candles: list, params: ShortParams) -> tuple[bool, float] | None:
+    """(baissier, valeur_ema_contexte) ou None si données insuffisantes."""
+    if len(candles) < params.context_ema + 2:
+        return None
+    closes = [float(c.close) for c in candles]
+    ce = ema(closes, params.context_ema)
+    val = ce[-1]
+    if val is None:
+        return None
+    return (closes[-1] < val, val)
+
+
 # ---- métier ----
 def _position_state(trade: ShortTrade, candles: list, params: ShortParams) -> PositionState:
     opened_ms = int(trade.opened_at.timestamp() * 1000)
@@ -119,7 +145,9 @@ def _position_state(trade: ShortTrade, candles: list, params: ShortParams) -> Po
     return PositionState(entry_price=trade.entry_price, stop=stop, take_profit=tp, bars_held=bars)
 
 
-def _entry_guard(db: Session, asset: Asset, params: ShortParams, cct: int) -> ShortReason | None:
+def _entry_guard(
+    db: Session, asset: Asset, params: ShortParams, cct: int, atr_pct: float | None
+) -> ShortReason | None:
     if _open_count(db) >= params.max_open_positions:
         return ShortReason.skip_blocked_max_positions
     notional = params.starting_capital * params.position_fraction
@@ -133,6 +161,8 @@ def _entry_guard(db: Session, asset: Asset, params: ShortParams, cct: int) -> Sh
             return ShortReason.skip_blocked_cooldown
     if notional < params.min_notional:
         return ShortReason.skip_blocked_min_notional
+    if atr_pct is not None and (atr_pct > params.max_atr_pct or atr_pct < params.min_atr_pct):
+        return ShortReason.skip_blocked_volatility
     return None
 
 
@@ -153,6 +183,7 @@ def _build_short(asset: Asset, params: ShortParams, decision, cct: int) -> Short
         slippage_rate=params.slippage_rate,
         funding_rate_daily=params.funding_rate_daily,
         entry_cost=res.entry_cost,
+        entry_reason=decision.reason.value,
         run_id=params.run_id,
         params_key=params.key(),
         notes="auto:short-runner",
@@ -164,13 +195,8 @@ def _close_short(
     trade: ShortTrade, params: ShortParams, decision, bars_held: int, cct: int
 ) -> None:
     res = short_pnl.compute_short_close(
-        trade.amount_invested,
-        trade.quantity,
-        trade.entry_cost,
-        decision.snapshot.close,
-        params,
-        bars_held,
-        _tf_hours(params.timeframe),
+        trade.amount_invested, trade.quantity, trade.entry_cost, decision.snapshot.close,
+        params, bars_held, _tf_hours(params.timeframe),
     )
     trade.exit_price = decision.snapshot.close
     trade.exit_cost = res.exit_cost
@@ -178,6 +204,7 @@ def _close_short(
     trade.pnl_gross = res.pnl_gross
     trade.pnl_net = res.pnl_net
     trade.pnl_percent = res.pnl_percent
+    trade.exit_reason = decision.reason.value
     trade.status = "closed"
     trade.closed_at = evaluated_at_from_candle(cct)
 
@@ -193,6 +220,13 @@ def _record(db, asset, params, decision, pstate, short_trade_id=None):
     db.add(rec)
 
 
+def _atr_pct(decision) -> float | None:
+    snap = decision.snapshot
+    if snap.atr is None or snap.close is None or float(snap.close) == 0:
+        return None
+    return float(snap.atr) / float(snap.close)
+
+
 def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) -> None:
     asset = db.scalar(select(Asset).where(Asset.symbol == symbol))
     if asset is None or not asset.is_tradeable or not asset.binance_symbol:
@@ -200,15 +234,24 @@ def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) 
         return
 
     try:
-        candles = candles_service.get_candles(asset.binance_symbol, params.timeframe, CANDLE_LIMIT)
+        candles = candles_service.get_candles(asset.binance_symbol, params.timeframe, EXEC_LIMIT)
+        ctx_candles = candles_service.get_candles(
+            asset.binance_symbol, params.context_timeframe, params.context_ema + 60
+        )
     except BinanceError as exc:
         logger.warning("%s: données indisponibles (%s)", symbol, exc)
         _bump(summary, "data_error")
         return
 
-    if len(candles) < warmup(params) + 1:
+    if len(candles) < exec_warmup(params) + 1:
         _bump(summary, "fail_safe")
         return
+
+    ctx = _context_bearish(ctx_candles, params)
+    if ctx is None:
+        _bump(summary, "fail_safe")
+        return
+    bearish, ctx_val = ctx
 
     cct = candles[-1].close_time
     if _decision_exists(db, asset.id, params, cct):
@@ -217,15 +260,16 @@ def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) 
 
     trade = _open_short(db, asset.id)
     position = _position_state(trade, candles, params) if trade is not None else None
-    decision = evaluate_short(candles, position, params)
+    decision = evaluate_short(
+        candles, position, params, context_bearish=bearish, context_value=ctx_val
+    )
     pstate = "open" if trade is not None else "flat"
 
     if decision.action == Action.enter:
-        blocked = _entry_guard(db, asset, params, cct)
+        blocked = _entry_guard(db, asset, params, cct, _atr_pct(decision))
         if blocked is not None:
-            _record(
-                db, asset, params, replace(decision, action=Action.skip, reason=blocked), pstate
-            )
+            skip = replace(decision, action=Action.skip, reason=blocked)
+            _record(db, asset, params, skip, pstate)
             db.commit()
             _bump(summary, blocked.value)
             return

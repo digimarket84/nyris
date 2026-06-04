@@ -52,6 +52,10 @@ class ShortTrade(Base, TimestampMixin):
     pnl_net: Mapped[Decimal | None] = mapped_column(_MONEY, nullable=True)
     pnl_percent: Mapped[Decimal | None] = mapped_column(_PCT, nullable=True)
 
+    # Raisons de décision (renseignées par le runner ; lisibles sans jointure)
+    entry_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    exit_reason: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
     # Traçabilité / isolation
     run_id: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
     params_key: Mapped[str] = mapped_column(String(80), nullable=False)
