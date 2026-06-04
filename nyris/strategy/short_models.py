@@ -33,9 +33,12 @@ class ShortReason(enum.StrEnum):
 @dataclass(frozen=True)
 class ShortParams:
     # Univers (short uniquement ; le baseline garde son UNIVERSE figé BTC/ETH/SOL).
-    # Extension V1 raisonnee : NEAR + SUI = plus volatils que les majors tout en
-    # restant assez liquides sur Binance EUR (cf. audit liquidite/volatilite).
-    universe: tuple[str, ...] = ("BTC", "ETH", "SOL", "NEAR", "SUI")
+    # Extension : majors + paires plus volatiles disponibles sur Binance EUR.
+    # INJ exclu (pas de paire INJEUR sur le flux). LINK/AVAX/PEPE sont fins :
+    # protegés par le plancher de volatilite min_atr_pct (n'entre que si ca bouge).
+    universe: tuple[str, ...] = (
+        "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
+    )
     # Timeframes : exécution sur 1m, contexte de tendance sur 1h
     timeframe: str = "1m"  # signal d'entrée + exécution
     context_timeframe: str = "1h"  # filtre de tendance supérieur
@@ -50,8 +53,10 @@ class ShortParams:
     max_hold: int = 60  # 60 bougies 1m = 60 min max en position
     max_stop_pct: float = 0.02  # le stop ne peut être plus loin que 2 % (1m)
     cooldown: int = 3  # 3 bougies 1m = 3 min entre deux trades d'un même actif
-    # Garde-fou volatilité (proxy "vol/spread anormaux") : bande sur ATR/close par bougie
-    min_atr_pct: float = 0.0003  # 0.03 % : sous ce seuil, marché trop plat (bruit)
+    # Garde-fou volatilité (proxy "vol/spread anormaux") : bande sur ATR/close par bougie.
+    # Plancher renforcé (0.03 % -> 0.08 %) pour ne PAS trader les bougies trop plates
+    # des paires fines (LINK/AVAX/PEPE) où le spread réel dominerait -> exécution "sale".
+    min_atr_pct: float = 0.0008  # 0.08 % : sous ce seuil, on s'abstient (anti-bruit/dirty)
     max_atr_pct: float = 0.012  # 1.2 % : au-dessus, volatilité anormale -> on s'abstient
     # Sizing (capital de référence 50 €, notional fixe non-compounding)
     starting_capital: Decimal = Decimal("50")
