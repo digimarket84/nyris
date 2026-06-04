@@ -61,8 +61,8 @@ class ShortParams:
     # Sizing (capital de référence 50 €, notional fixe non-compounding)
     starting_capital: Decimal = Decimal("50")
     position_fraction: Decimal = Decimal("0.5")  # 25 € par short
-    max_open_positions: int = 1  # une seule position short à la fois au départ
-    max_total_exposure: Decimal = Decimal("1.0")
+    max_open_positions: int = 3  # jusqu'à 3 shorts en parallèle (évite la famine des paires)
+    max_total_exposure: Decimal = Decimal("1.5")  # cap 50€*1.5 = 75€ -> 3 x 25€ tiennent
     min_notional: Decimal = Decimal("10")
     # Coûts (par côté sauf funding qui est /jour)
     commission_rate: Decimal = Decimal("0.001")
