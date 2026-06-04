@@ -39,18 +39,18 @@ class ShortParams:
     universe: tuple[str, ...] = (
         "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
     )
-    # Timeframes : exécution sur 1m, contexte de tendance sur 1h
-    timeframe: str = "1m"  # signal d'entrée + exécution
+    # Timeframes : exécution sur 5m (mouvements assez amples vs frais), contexte 1h
+    timeframe: str = "5m"  # signal d'entrée + exécution
     context_timeframe: str = "1h"  # filtre de tendance supérieur
     context_ema: int = 50  # contexte baissier si close_1h < EMA(context_ema)_1h
     # Indicateurs d'exécution (sur `timeframe`)
     ema_pullback: int = 20  # EMA 1m de référence du rejet
     atr_period: int = 14
     ema_trend: int = 200  # conservé pour le mode legacy/snapshot (non utilisé en MTF)
-    # Sorties (stop court & explicable)
-    atr_stop_mult: float = 1.0
-    reward_r: float = 1.5
-    max_hold: int = 60  # 60 bougies 1m = 60 min max en position
+    # Sorties (profil agressif : cible lointaine pour dépasser les frais)
+    atr_stop_mult: float = 1.5
+    reward_r: float = 2.5
+    max_hold: int = 60  # 60 bougies 5m = 5 h max en position
     max_stop_pct: float = 0.02  # le stop ne peut être plus loin que 2 % (1m)
     cooldown: int = 3  # 3 bougies 1m = 3 min entre deux trades d'un même actif
     # Garde-fou volatilité (proxy "vol/spread anormaux") : bande sur ATR/close par bougie.
@@ -69,8 +69,8 @@ class ShortParams:
     spread_rate: Decimal = Decimal("0.0005")
     slippage_rate: Decimal = Decimal("0.0005")
     funding_rate_daily: Decimal = Decimal("0.0003")
-    # Identité (run_id court <= 40 caractères)
-    run_id: str = "live-short-v2"
+    # Identité (run_id court <= 40 caractères) ; v3 = régime 5m agressif
+    run_id: str = "live-short-v3"
 
     def key(self) -> str:
         # clé <= 80 caractères, distincte du baseline ET de la V1 short
