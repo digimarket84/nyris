@@ -101,13 +101,14 @@
               <th class="px-3 py-2 text-right">PnL net</th>
               <th class="px-3 py-2 text-right">PnL %</th>
               <th class="px-3 py-2">Statut</th>
+              <th class="px-3 py-2 text-right">Durée</th>
               <th class="px-3 py-2">Entrée / Sortie</th>
               <th class="px-3 py-2">run_id</th>
             </tr>
           </thead>
           <tbody>
             <tr x-show="loading">
-              <td colspan="15" class="px-3 py-6 text-center text-slate-500"><span class="spinner"></span> Chargement…</td>
+              <td colspan="16" class="px-3 py-6 text-center text-slate-500"><span class="spinner"></span> Chargement…</td>
             </tr>
             <template x-for="t in items" :key="t.id">
               <tr class="border-t border-slate-100" x-show="!loading">
@@ -124,6 +125,7 @@
                 <td class="px-3 py-2 text-right tnum font-medium" :class="fmt.pnlClass(t.pnl_net)" x-text="fmt.eurSigned(t.pnl_net)"></td>
                 <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_percent)" x-text="fmt.pctSigned(t.pnl_percent)"></td>
                 <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="t.status === 'open' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'" x-text="t.status"></span></td>
+                <td class="px-3 py-2 text-right tnum text-xs text-slate-500 whitespace-nowrap" x-text="dur(t.opened_at, t.closed_at)"></td>
                 <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap">
                   <span x-text="t.entry_reason || '—'"></span>
                   <span class="text-slate-300"> → </span>
@@ -133,7 +135,7 @@
               </tr>
             </template>
             <tr x-show="!loading && items.length === 0">
-              <td colspan="15" class="px-3 py-8 text-center text-slate-400">Aucun trade short pour ces filtres.</td>
+              <td colspan="16" class="px-3 py-8 text-center text-slate-400">Aucun trade short pour ces filtres.</td>
             </tr>
           </tbody>
         </table>
@@ -242,6 +244,17 @@
         shortRun(r) {
           if (!r) return "—";
           return r.length > 22 ? "…" + r.slice(-20) : r;
+        },
+        dur(opened, closed) {
+          if (!opened || !closed) return "—"; // trade encore ouvert
+          const ms = new Date(closed).getTime() - new Date(opened).getTime();
+          if (isNaN(ms) || ms < 0) return "—";
+          const m = Math.round(ms / 60000);
+          if (m < 60) return `${m} min`;
+          const h = Math.floor(m / 60), rm = m % 60;
+          if (h < 24) return rm ? `${h} h ${rm}` : `${h} h`;
+          const d = Math.floor(h / 24), rh = h % 24;
+          return rh ? `${d} j ${rh} h` : `${d} j`;
         },
       };
     }
