@@ -34,6 +34,7 @@ from nyris.strategy import short_pnl
 from nyris.strategy.indicators import ema
 from nyris.strategy.models import Action, PositionState
 from nyris.strategy.recorder import build_decision_record, evaluated_at_from_candle
+from nyris.strategy.short_breakout_engine import breakout_warmup, evaluate_breakout
 from nyris.strategy.short_engine import evaluate_short, exec_warmup
 from nyris.strategy.short_models import ShortParams, ShortReason
 
@@ -227,6 +228,20 @@ def _atr_pct(decision) -> float | None:
     return float(snap.atr) / float(snap.close)
 
 
+def _warmup(params: ShortParams) -> int:
+    return breakout_warmup(params) if params.strategy == "breakdown" else exec_warmup(params)
+
+
+def _evaluate(candles, position, params, bearish, ctx_val):
+    if params.strategy == "breakdown":
+        return evaluate_breakout(
+            candles, position, params, context_bearish=bearish, context_value=ctx_val
+        )
+    return evaluate_short(
+        candles, position, params, context_bearish=bearish, context_value=ctx_val
+    )
+
+
 def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) -> None:
     asset = db.scalar(select(Asset).where(Asset.symbol == symbol))
     if asset is None or not asset.is_tradeable or not asset.binance_symbol:
@@ -243,7 +258,7 @@ def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) 
         _bump(summary, "data_error")
         return
 
-    if len(candles) < exec_warmup(params) + 1:
+    if len(candles) < _warmup(params) + 1:
         _bump(summary, "fail_safe")
         return
 
@@ -260,9 +275,7 @@ def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) 
 
     trade = _open_short(db, asset.id)
     position = _position_state(trade, candles, params) if trade is not None else None
-    decision = evaluate_short(
-        candles, position, params, context_bearish=bearish, context_value=ctx_val
-    )
+    decision = _evaluate(candles, position, params, bearish, ctx_val)
     pstate = "open" if trade is not None else "flat"
 
     if decision.action == Action.enter:
@@ -286,7 +299,19 @@ def process_asset(db: Session, symbol: str, params: ShortParams, summary: dict) 
         db.commit()
         _bump(summary, "exit")
     else:
-        _record(db, asset, params, decision, pstate)
+        # trailing stop (breakdown) : resserre le stop du trade ouvert s'il baisse
+        if (
+            trade is not None
+            and decision.action == Action.hold
+            and decision.stop is not None
+            and trade.stop_price is not None
+            and decision.stop < trade.stop_price
+        ):
+            trade.stop_price = decision.stop
+            db.flush()
+            _bump(summary, "trail")
+        _record(db, asset, params, decision, pstate,
+                short_trade_id=trade.id if trade is not None else None)
         db.commit()
         _bump(summary, "hold_skip")
 

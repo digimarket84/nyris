@@ -40,20 +40,28 @@ class ShortParams:
     universe: tuple[str, ...] = (
         "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
     )
-    # Timeframes : exécution sur 5m (mouvements assez amples vs frais), contexte 1h
-    timeframe: str = "5m"  # signal d'entrée + exécution
+    # Stratégie active : "breakdown" (cassure de support, V4) ou "rejection" (rejet EMA, V3).
+    strategy: str = "breakdown"
+    # Timeframes : exécution 15m (cassures plus fiables), contexte 1h
+    timeframe: str = "15m"  # signal d'entrée + exécution
     context_timeframe: str = "1h"  # filtre de tendance supérieur
     context_ema: int = 50  # contexte baissier si close_1h < EMA(context_ema)_1h
     # Indicateurs d'exécution (sur `timeframe`)
-    ema_pullback: int = 20  # EMA 1m de référence du rejet
+    ema_pullback: int = 20  # (rejection) EMA de référence du rejet
     atr_period: int = 14
     ema_trend: int = 200  # conservé pour le mode legacy/snapshot (non utilisé en MTF)
-    # Sorties (profil agressif : cible lointaine pour dépasser les frais)
-    atr_stop_mult: float = 1.5
-    reward_r: float = 2.5
-    max_hold: int = 60  # 60 bougies 5m = 5 h max en position
-    max_stop_pct: float = 0.02  # le stop ne peut être plus loin que 2 % (1m)
-    cooldown: int = 3  # 3 bougies 1m = 3 min entre deux trades d'un même actif
+    # --- Params "breakdown" (cassure de support) ---
+    support_lookback: int = 20  # fenêtre support/résistance (plus_bas / plus_haut)
+    vol_lookback: int = 20  # fenêtre du volume moyen
+    vol_factor: float = 1.2  # volume vendeur en hausse : vol > 1.2 × moyenne
+    trail_atr_mult: float = 2.0  # distance du trailing stop (× ATR)
+    swing_buffer_pct: float = 0.0005  # marge au-dessus du sommet local pour le stop
+    # Sorties
+    atr_stop_mult: float = 1.5  # (rejection) stop = entrée + 1.5×ATR
+    reward_r: float = 2.0  # take-profit = reward_r × risque
+    max_hold: int = 60  # (rejection seulement) ; breakdown n'a pas de sortie sur durée
+    max_stop_pct: float = 0.03  # plafond de distance du stop (structure)
+    cooldown: int = 2  # bougies entre deux trades d'un même actif
     # Garde-fou volatilité (proxy "vol/spread anormaux") : bande sur ATR/close par bougie.
     # Plancher renforcé (0.03 % -> 0.08 %) pour ne PAS trader les bougies trop plates
     # des paires fines (LINK/AVAX/PEPE) où le spread réel dominerait -> exécution "sale".
@@ -70,11 +78,17 @@ class ShortParams:
     spread_rate: Decimal = Decimal("0.0005")
     slippage_rate: Decimal = Decimal("0.0005")
     funding_rate_daily: Decimal = Decimal("0.0003")
-    # Identité (run_id court <= 40 caractères) ; v3 = régime 5m agressif
-    run_id: str = "live-short-v3"
+    # Identité (run_id court <= 40 caractères) ; v4 = cassure de support 15m
+    run_id: str = "live-short-v4"
 
     def key(self) -> str:
-        # clé <= 80 caractères, distincte du baseline ET de la V1 short
+        # clé <= 80 caractères, distincte du baseline ET des autres régimes short
+        if self.strategy == "breakdown":
+            return (
+                f"short-bk-x{self.context_timeframe}{self.context_ema}"
+                f"-t{self.timeframe}_sup{self.support_lookback}"
+                f"_R{self.reward_r}_tr{self.trail_atr_mult}"
+            )
         return (
             f"short-x{self.context_timeframe}{self.context_ema}"
             f"-t{self.timeframe}_p{self.ema_pullback}"

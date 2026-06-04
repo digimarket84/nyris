@@ -29,6 +29,7 @@ from nyris.strategy.short_runner import (
 STEP = 60 * 1000  # 1 minute
 BASE_T = 9_200_000_000_000
 P = ShortParams(
+    strategy="rejection",  # ces tests valident le dispatch du moteur de rejet
     timeframe="1m", context_timeframe="1h", context_ema=5,
     ema_pullback=3, atr_period=3, max_hold=5, cooldown=0,
     min_atr_pct=0.0, max_atr_pct=1.0,  # bande large : ne bloque pas en test
