@@ -32,8 +32,10 @@ class ShortReason(enum.StrEnum):
 
 @dataclass(frozen=True)
 class ShortParams:
-    # Univers
-    universe: tuple[str, ...] = ("BTC", "ETH", "SOL")
+    # Univers (short uniquement ; le baseline garde son UNIVERSE figé BTC/ETH/SOL).
+    # Extension V1 raisonnee : NEAR + SUI = plus volatils que les majors tout en
+    # restant assez liquides sur Binance EUR (cf. audit liquidite/volatilite).
+    universe: tuple[str, ...] = ("BTC", "ETH", "SOL", "NEAR", "SUI")
     # Timeframes : exécution sur 1m, contexte de tendance sur 1h
     timeframe: str = "1m"  # signal d'entrée + exécution
     context_timeframe: str = "1h"  # filtre de tendance supérieur
