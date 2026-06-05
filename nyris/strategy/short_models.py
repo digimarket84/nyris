@@ -44,8 +44,8 @@ class ShortParams:
     )
     # Stratégie active : "breakdown" (cassure de support, V4) ou "rejection" (rejet EMA, V3).
     strategy: str = "breakdown"
-    # Timeframes : exécution 1m (demande utilisateur ; cassures plus rapides/bruitées), contexte 1h
-    timeframe: str = "1m"  # signal d'entrée + exécution
+    # Timeframes : exécution 15m (config v4 ; cassures plus fiables), contexte 1h
+    timeframe: str = "15m"  # signal d'entrée + exécution
     context_timeframe: str = "1h"  # filtre de tendance supérieur
     context_ema: int = 50  # contexte baissier si close_1h < EMA(context_ema)_1h
     # Indicateurs d'exécution (sur `timeframe`)
@@ -83,8 +83,8 @@ class ShortParams:
     spread_rate: Decimal = Decimal("0.0005")
     slippage_rate: Decimal = Decimal("0.0005")
     funding_rate_daily: Decimal = Decimal("0.0003")
-    # Identité (run_id court <= 40 caractères) ; cassure de support en exécution 1m
-    run_id: str = "live-short-1m"
+    # Identité (run_id court <= 40 caractères) ; config v4 (cassure de support 15m)
+    run_id: str = "live-short-v4"
 
     def key(self) -> str:
         # clé <= 80 caractères, distincte du baseline ET des autres régimes short
