@@ -80,8 +80,8 @@ def pattern_trades_stats(db: Session, f: PatternTradeFilters) -> dict:
     losses = closed_count - wins
     return {
         "trades_total": trades_total, "open_count": open_count, "closed_count": closed_count,
-        "pnl_gross_total": pnl_gross_total, "fees_total": fees_total, "pnl_net_total": pnl_net_total,
-        "wins": wins, "losses": losses,
+        "pnl_gross_total": pnl_gross_total, "fees_total": fees_total,
+        "pnl_net_total": pnl_net_total, "wins": wins, "losses": losses,
         "win_rate": (wins / closed_count) if closed_count else None,
         "long_count": cnt(closed, sub.c.side == "long"),
         "long_net": net(closed, sub.c.side == "long"),

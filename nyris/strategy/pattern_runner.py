@@ -76,27 +76,33 @@ def _decision_exists(db: Session, asset_id: int, p: PatternParams, cct: int) -> 
 
 
 def _open_trade(db: Session, asset_id: int) -> PatternTrade | None:
+    # filtre run_id : ne voit QUE les positions du runner pattern (pas celles des runners LLM
+    # qui partagent la table pattern_trades).
     return db.scalar(
-        select(PatternTrade).where(PatternTrade.asset_id == asset_id, PatternTrade.status == "open")
+        select(PatternTrade).where(
+            PatternTrade.asset_id == asset_id, PatternTrade.status == "open",
+            PatternTrade.run_id == PAT.run_id)
         .order_by(PatternTrade.id.desc())
     )
 
 
 def _open_count(db: Session) -> int:
     return int(db.scalar(
-        select(func.count()).select_from(PatternTrade).where(PatternTrade.status == "open")) or 0)
+        select(func.count()).select_from(PatternTrade)
+        .where(PatternTrade.status == "open", PatternTrade.run_id == PAT.run_id)) or 0)
 
 
 def _open_exposure(db: Session) -> Decimal:
     return Decimal(db.scalar(
         select(func.coalesce(func.sum(PatternTrade.amount_invested), 0))
-        .where(PatternTrade.status == "open")))
+        .where(PatternTrade.status == "open", PatternTrade.run_id == PAT.run_id)))
 
 
 def _last_closed(db: Session, asset_id: int) -> PatternTrade | None:
     return db.scalar(
         select(PatternTrade)
-        .where(PatternTrade.asset_id == asset_id, PatternTrade.status == "closed")
+        .where(PatternTrade.asset_id == asset_id, PatternTrade.status == "closed",
+               PatternTrade.run_id == PAT.run_id)
         .order_by(PatternTrade.id.desc()))
 
 
