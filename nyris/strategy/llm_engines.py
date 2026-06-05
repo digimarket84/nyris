@@ -171,13 +171,14 @@ ENTRY_FNS = {
 STRATEGIES = [
     LlmStrategy("perplexity", "live-perplexity-v1", "15m", "1h", 320, 320,
                 reward_ratio=2.2, be_trigger_r=0.0, partial=True,
-                max_hold_bars=8, cooldown_bars=12),
+                max_hold_bars=8, cooldown_bars=12, max_open_positions=3),
     LlmStrategy("chatgpt", "live-chatgpt-v1", "15m", "4h", 320, 320,
-                reward_ratio=2.0, be_trigger_r=0.556, be_offset_pct=0.0),
+                reward_ratio=2.0, be_trigger_r=0.556, be_offset_pct=0.0,
+                max_open_positions=3),
     LlmStrategy("gemini", "live-gemini-v1", "15m", "4h", 320, 320,
                 reward_ratio=3.0, be_trigger_r=1.5, be_offset_pct=0.0035,
                 reverse_on_opposite=True, max_open_positions=3),
     LlmStrategy("mistral", "live-mistral-v1", "5m", "1h", 320, 320,
                 reward_ratio=2.667, be_trigger_r=1.0, be_offset_pct=0.001,
-                reverse_on_opposite=True),
+                reverse_on_opposite=True, max_open_positions=3),
 ]
