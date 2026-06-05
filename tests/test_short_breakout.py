@@ -1,5 +1,6 @@
 """Tests du moteur SHORT « cassure de support » (V4, pur)."""
 
+from dataclasses import replace
 from decimal import Decimal
 
 from nyris.strategy.models import Action, Candle, PositionState
@@ -77,8 +78,10 @@ def test_trailing_tightens_stop():
 
 
 def test_breakeven_locks_at_entry():
+    # le code breakeven reste paramétrique (désactivé par défaut) : on l'active ici
+    p = replace(Pb, breakeven_trigger_pct=0.008)
     # entrée 100, prix favorable à 99 (-1% > seuil 0.8%) -> stop verrouillé au breakeven (100)
     pos = PositionState(Decimal("100"), Decimal("200"), Decimal("0"), 1)
-    d = evaluate_breakout(bk([100] * 7 + [99]), pos, Pb, context_bearish=True, context_value=120.0)
+    d = evaluate_breakout(bk([100] * 7 + [99]), pos, p, context_bearish=True, context_value=120.0)
     assert d.action == Action.hold and d.reason == ShortReason.hold_in_position
     assert d.stop == Decimal("100")  # breakeven : plus aucune perte possible

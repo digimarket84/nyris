@@ -54,8 +54,10 @@ class ShortParams:
     support_lookback: int = 20  # fenêtre support/résistance (plus_bas / plus_haut)
     vol_lookback: int = 20  # fenêtre du volume moyen
     vol_factor: float = 1.2  # volume vendeur en hausse : vol > 1.2 × moyenne
-    trail_atr_mult: float = 1.0  # distance du trailing stop (× ATR) — B: resserré (était 2.0)
-    breakeven_trigger_pct: float = 0.008  # B: dès +0.8% favorable, stop ramené au breakeven
+    # Backtest (340+ trades) : trailing serré + breakeven (v5) = 2x PIRE que 2xATR seul.
+    # On revient donc au trailing large, sans breakeven (config v4, la moins mauvaise).
+    trail_atr_mult: float = 2.0  # distance du trailing stop (× ATR)
+    breakeven_trigger_pct: float = 0.0  # désactivé (le breakeven serrait trop -> whipsaw)
     swing_buffer_pct: float = 0.0005  # marge au-dessus du sommet local pour le stop
     # Sorties
     atr_stop_mult: float = 1.5  # (rejection) stop = entrée + 1.5×ATR
@@ -79,8 +81,8 @@ class ShortParams:
     spread_rate: Decimal = Decimal("0.0005")
     slippage_rate: Decimal = Decimal("0.0005")
     funding_rate_daily: Decimal = Decimal("0.0003")
-    # Identité (run_id court <= 40 caractères) ; v5 = cassure + sortie B (breakeven+trailing serré)
-    run_id: str = "live-short-v5"
+    # Identité (run_id court <= 40 caractères) ; revert config v4 (backtest: v5 pire)
+    run_id: str = "live-short-v4"
 
     def key(self) -> str:
         # clé <= 80 caractères, distincte du baseline ET des autres régimes short
