@@ -74,3 +74,11 @@ def test_trailing_tightens_stop():
     d = evaluate_breakout(bk([100] * 8), pos, Pb, context_bearish=True, context_value=120.0)
     assert d.action == Action.hold and d.reason == ShortReason.hold_in_position
     assert d.stop is not None and d.stop < Decimal("200")  # trailing a resserré
+
+
+def test_breakeven_locks_at_entry():
+    # entrée 100, prix favorable à 99 (-1% > seuil 0.8%) -> stop verrouillé au breakeven (100)
+    pos = PositionState(Decimal("100"), Decimal("200"), Decimal("0"), 1)
+    d = evaluate_breakout(bk([100] * 7 + [99]), pos, Pb, context_bearish=True, context_value=120.0)
+    assert d.action == Action.hold and d.reason == ShortReason.hold_in_position
+    assert d.stop == Decimal("100")  # breakeven : plus aucune perte possible

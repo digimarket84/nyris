@@ -106,4 +106,8 @@ def evaluate_breakout(
     # trailing stop : on resserre le stop vers le bas (jamais vers le haut)
     trail = close + params.trail_atr_mult * at[i]
     new_stop = min(stop, trail)
+    # B : dès que le trade est favorable de breakeven_trigger_pct, on verrouille au breakeven
+    entry_p = float(position.entry_price)
+    if params.breakeven_trigger_pct > 0 and close <= entry_p * (1.0 - params.breakeven_trigger_pct):
+        new_stop = min(new_stop, entry_p)
     return Decision(Action.hold, ShortReason.hold_in_position, snap, stop=_price(new_stop))
