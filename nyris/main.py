@@ -9,6 +9,7 @@ from nyris.api.routes import (
     assets,
     health,
     market,
+    pattern_trades,
     portfolio,
     short_trades,
     strategy,
@@ -29,6 +30,7 @@ app.include_router(portfolio.router, prefix=API_V1)
 app.include_router(market.router, prefix=API_V1)
 app.include_router(strategy.router, prefix=API_V1)
 app.include_router(short_trades.router, prefix=API_V1)
+app.include_router(pattern_trades.router, prefix=API_V1)
 
 # Dashboard statique (servi en same-origin, accès via tunnel SSH)
 app.mount("/ui", StaticFiles(directory="frontend", html=True), name="ui")

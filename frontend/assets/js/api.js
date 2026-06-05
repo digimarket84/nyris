@@ -60,6 +60,8 @@
     getStrategyDecisions: (params) => request("GET", "/api/v1/strategy/decisions" + qs(params)),
     getShortTrades: (params) => request("GET", "/api/v1/short/trades" + qs(params)),
     getShortTradesStats: (params) => request("GET", "/api/v1/short/trades/stats" + qs(params)),
+    getPatternTrades: (params) => request("GET", "/api/v1/pattern/trades" + qs(params)),
+    getPatternTradesStats: (params) => request("GET", "/api/v1/pattern/trades/stats" + qs(params)),
     getTradesHistory: (params) => request("GET", "/api/v1/trades/history" + qs(params)),
     createTrade: (body) => request("POST", "/api/v1/trades", body),
     closeTrade: (id, body) => request("POST", `/api/v1/trades/${id}/close`, body),

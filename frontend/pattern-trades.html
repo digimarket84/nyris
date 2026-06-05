@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Nyris — Trades Pattern</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+  <script defer src="assets/js/api.js"></script>
+  <script defer src="assets/js/format.js"></script>
+  <script defer src="assets/js/shell.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800">
+  <div id="shell-header"></div>
+  <main class="max-w-6xl mx-auto px-4 py-6">
+    <div id="error-banner"></div>
+
+    <div x-data="patternPage()" x-init="init()" x-cloak>
+      <div class="flex items-baseline justify-between mb-4">
+        <h1 class="text-lg font-semibold text-slate-900">Trades virtuels — runners bidirectionnels</h1>
+        <span class="text-xs text-slate-400">source : table <code>pattern_trades</code> (long & short, isolée du baseline)</span>
+      </div>
+
+      <!-- Filtres -->
+      <div class="bg-white rounded-lg border border-slate-200 p-3 mb-4 grid grid-cols-2 md:grid-cols-5 gap-2 items-end text-sm">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Actif</label>
+          <select x-model="filters.symbol" @change="reload()" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Tous</option>
+            <template x-for="a in assets" :key="a.id"><option :value="a.symbol" x-text="a.symbol"></option></template>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Sens</label>
+          <select x-model="filters.side" @change="reload()" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Tous</option><option value="long">long</option><option value="short">short</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Statut</label>
+          <select x-model="filters.status" @change="reload()" class="w-full border border-slate-300 rounded-md px-2 py-1.5">
+            <option value="">Tous</option><option value="open">open</option><option value="closed">closed</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">run_id</label>
+          <input x-model="filters.run_id" @keydown.enter="reload()" class="w-full border border-slate-300 rounded-md px-2 py-1.5" placeholder="(tous)" />
+        </div>
+        <div class="flex gap-2">
+          <button @click="reload()" class="flex-1 bg-slate-900 text-white px-3 py-1.5 rounded-md hover:bg-slate-700">Filtrer</button>
+          <button @click="resetFilters()" class="border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-100">Reset</button>
+        </div>
+      </div>
+
+      <!-- Synthèse -->
+      <div class="grid grid-cols-2 md:grid-cols-6 gap-3 mb-4">
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">PnL net</div>
+          <div class="text-xl font-semibold tnum" :class="fmt.pnlClass(stats.pnl_net_total)" x-text="fmt.eurSigned(stats.pnl_net_total)"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">Win rate</div>
+          <div class="text-xl font-semibold tnum" x-text="winRatePct()"></div>
+          <div class="text-xs text-slate-400" x-text="`${stats.wins ?? 0}G / ${stats.losses ?? 0}P`"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">Long (net)</div>
+          <div class="text-lg font-semibold tnum" :class="fmt.pnlClass(stats.long_net)" x-text="fmt.eurSigned(stats.long_net)"></div>
+          <div class="text-xs text-slate-400" x-text="`${stats.long_count ?? 0} clos`"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">Short (net)</div>
+          <div class="text-lg font-semibold tnum" :class="fmt.pnlClass(stats.short_net)" x-text="fmt.eurSigned(stats.short_net)"></div>
+          <div class="text-xs text-slate-400" x-text="`${stats.short_count ?? 0} clos`"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">Trades</div>
+          <div class="text-xl font-semibold tnum" x-text="stats.trades_total ?? '—'"></div>
+          <div class="text-xs text-slate-400" x-text="`${stats.open_count ?? 0} open`"></div>
+        </div>
+        <div class="bg-white rounded-lg border border-slate-200 p-3">
+          <div class="text-xs text-slate-500">Frais</div>
+          <div class="text-xl font-semibold tnum text-slate-700" x-text="fmt.eur(stats.fees_total)"></div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-white rounded-lg border border-slate-200 overflow-x-auto">
+        <table class="text-sm" style="min-width: 1280px">
+          <thead>
+            <tr class="text-left text-xs font-medium text-slate-500 uppercase">
+              <th class="px-3 py-2">Ouverture</th><th class="px-3 py-2">Fermeture</th>
+              <th class="px-3 py-2">Actif</th><th class="px-3 py-2">Sens</th><th class="px-3 py-2">Schéma</th>
+              <th class="px-3 py-2 text-right">Entrée</th><th class="px-3 py-2 text-right">Sortie</th>
+              <th class="px-3 py-2 text-right">Notional</th><th class="px-3 py-2 text-right">Frais</th>
+              <th class="px-3 py-2 text-right">PnL brut</th><th class="px-3 py-2 text-right">PnL net</th>
+              <th class="px-3 py-2 text-right">PnL %</th><th class="px-3 py-2">Statut</th>
+              <th class="px-3 py-2">Durée</th><th class="px-3 py-2">run_id</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr x-show="loading"><td colspan="15" class="px-3 py-6 text-center text-slate-500"><span class="spinner"></span> Chargement…</td></tr>
+            <template x-for="t in items" :key="t.id">
+              <tr class="border-t border-slate-100" x-show="!loading">
+                <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap" x-text="fmt.dt(t.opened_at)"></td>
+                <td class="px-3 py-2 text-xs text-slate-500 whitespace-nowrap" x-text="fmt.dt(t.closed_at)"></td>
+                <td class="px-3 py-2 font-medium" x-text="t.symbol"></td>
+                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="t.side === 'long' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'" x-text="t.side"></span></td>
+                <td class="px-3 py-2 text-xs text-slate-500" x-text="t.pattern || '—'"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(t.entry_price)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.priceEur(t.exit_price)"></td>
+                <td class="px-3 py-2 text-right tnum" x-text="fmt.eur(t.amount_invested)"></td>
+                <td class="px-3 py-2 text-right tnum text-slate-700" x-text="fmt.eur(t.fees_total)"></td>
+                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_gross)" x-text="fmt.eurSigned(t.pnl_gross)"></td>
+                <td class="px-3 py-2 text-right tnum font-medium" :class="fmt.pnlClass(t.pnl_net)" x-text="fmt.eurSigned(t.pnl_net)"></td>
+                <td class="px-3 py-2 text-right tnum" :class="fmt.pnlClass(t.pnl_percent)" x-text="fmt.pctSigned(t.pnl_percent)"></td>
+                <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs font-medium" :class="t.status === 'open' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'" x-text="t.status"></span></td>
+                <td class="px-3 py-2 text-right tnum text-xs text-slate-500 whitespace-nowrap" x-text="dur(t.opened_at, t.closed_at)"></td>
+                <td class="px-3 py-2 text-xs text-slate-400" :title="t.run_id" x-text="shortRun(t.run_id)"></td>
+              </tr>
+            </template>
+            <tr x-show="!loading && items.length === 0"><td colspan="15" class="px-3 py-8 text-center text-slate-400">Aucun trade pattern pour ces filtres.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="flex items-center justify-between mt-3 text-sm text-slate-500">
+        <span x-text="`Total : ${total}`"></span>
+        <div class="flex gap-2 items-center">
+          <button @click="prev()" :disabled="filters.offset === 0" class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">‹ Précédent</button>
+          <span class="tnum" x-show="items.length" x-text="`${filters.offset + 1}–${filters.offset + items.length}`"></span>
+          <button @click="next()" :disabled="!hasMore()" class="border border-slate-300 px-2 py-1 rounded-md disabled:opacity-40">Suivant ›</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function patternPage() {
+      return {
+        loading: true, assets: [], items: [], total: 0, stats: {},
+        filters: { symbol: "", side: "", status: "", run_id: "", limit: 25, offset: 0 },
+        async init() {
+          try { this.assets = await api.getAssets(); } catch (e) {}
+          await this.reload();
+        },
+        params() {
+          const p = { limit: this.filters.limit, offset: this.filters.offset };
+          for (const k of ["symbol", "side", "status", "run_id"]) if (this.filters[k]) p[k] = this.filters[k];
+          return p;
+        },
+        statsParams() {
+          const p = {};
+          for (const k of ["symbol", "side", "status", "run_id"]) if (this.filters[k]) p[k] = this.filters[k];
+          return p;
+        },
+        async loadTable() {
+          this.loading = true; shell.clearError();
+          try { const r = await api.getPatternTrades(this.params()); this.items = r.items; this.total = r.total; }
+          catch (e) { shell.showError("Chargement trades pattern : " + e.message); }
+          finally { this.loading = false; }
+        },
+        async loadStats() { try { this.stats = await api.getPatternTradesStats(this.statsParams()); } catch (e) { this.stats = {}; } },
+        async reload() { this.filters.offset = 0; await Promise.all([this.loadTable(), this.loadStats()]); },
+        resetFilters() { this.filters = { symbol: "", side: "", status: "", run_id: "", limit: 25, offset: 0 }; this.reload(); },
+        next() { if (this.hasMore()) { this.filters.offset += this.filters.limit; this.loadTable(); } },
+        prev() { if (this.filters.offset > 0) { this.filters.offset = Math.max(0, this.filters.offset - this.filters.limit); this.loadTable(); } },
+        hasMore() { return this.filters.offset + this.items.length < this.total; },
+        winRatePct() { const w = this.stats.win_rate; return (w === null || w === undefined) ? "—" : `${(w * 100).toFixed(1)} %`; },
+        shortRun(r) { return !r ? "—" : (r.length > 22 ? "…" + r.slice(-20) : r); },
+        dur(o, c) {
+          if (!o || !c) return "—";
+          const ms = new Date(c).getTime() - new Date(o).getTime();
+          if (isNaN(ms) || ms < 0) return "—";
+          const m = Math.round(ms / 60000);
+          if (m < 60) return `${m} min`;
+          const h = Math.floor(m / 60), rm = m % 60;
+          if (h < 24) return rm ? `${h} h ${rm}` : `${h} h`;
+          const d = Math.floor(h / 24), rh = h % 24; return rh ? `${d} j ${rh} h` : `${d} j`;
+        },
+      };
+    }
+  </script>
+</body>
+</html>
