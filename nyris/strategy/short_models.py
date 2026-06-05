@@ -39,6 +39,8 @@ class ShortParams:
     # protegés par le plancher de volatilite min_atr_pct (n'entre que si ca bouge).
     universe: tuple[str, ...] = (
         "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
+        # tokens "hype" cotés en USDT uniquement (pas de paire EUR) — très volatils
+        "POND", "BABY", "HOME", "LA",
     )
     # Stratégie active : "breakdown" (cassure de support, V4) ou "rejection" (rejet EMA, V3).
     strategy: str = "breakdown"
