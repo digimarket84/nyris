@@ -232,6 +232,7 @@ def process_asset(db, asset, strat, exec_candles, ctx_candles, summary):
 ENTRY_UNIVERSE = (
     "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
     "POND", "BABY", "HOME", "LA",
+    "ZEC", "WLD", "ENA",  # ajouts liquides + volatils (USDT)
 )
 
 

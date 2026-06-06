@@ -37,6 +37,7 @@ class PatternParams:
     universe: tuple[str, ...] = (
         "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
         "POND", "BABY", "HOME", "LA",
+        "ZEC", "WLD", "ENA",  # ajouts liquides + volatils (USDT)
     )
     timeframe: str = "5m"  # détection
     donchian_lookback: int = 20  # fenêtre cassure (plus_haut/plus_bas)

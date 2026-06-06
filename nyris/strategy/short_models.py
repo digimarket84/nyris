@@ -42,6 +42,7 @@ class ShortParams:
         "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
         # tokens "hype" cotés en USDT uniquement (pas de paire EUR) — très volatils
         "POND", "BABY", "HOME", "LA",
+        "ZEC", "WLD", "ENA",  # ajouts liquides + volatils (USDT)
     )
     # Stratégie active : "breakdown" (cassure de support, V4) ou "rejection" (rejet EMA, V3).
     strategy: str = "breakdown"
