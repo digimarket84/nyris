@@ -16,7 +16,9 @@ def mk(n, price=100.0):
 
 def test_registry_coherent():
     names = {s.name for s in STRATEGIES}
-    assert names == set(ENTRY_FNS) == {"perplexity", "chatgpt", "gemini", "mistral"}
+    assert names == {"perplexity", "chatgpt", "mistral"}  # gemini retiré (fonction conservée)
+    assert names <= set(ENTRY_FNS)  # chaque stratégie active a sa fonction d'entrée
+    assert "gemini" in ENTRY_FNS  # conservée pour réactivation éventuelle
     for s in STRATEGIES:
         assert s.run_id.startswith("live-") and s.exec_tf and s.ctx_tf
 
