@@ -12,10 +12,12 @@ from nyris.models.pattern_trade import PatternTrade
 from nyris.schemas.pattern_trade import PatternTradeFilters
 
 _ZERO = Decimal("0.00")
+# Symboles masqués de l'AFFICHAGE (pas supprimés de la BDD). Réversible : vider le tuple.
+_HIDDEN = ("BTC", "ETH", "SOL")
 
 
 def _conds(f: PatternTradeFilters):
-    conds = []
+    conds = [Asset.symbol.notin_(_HIDDEN)]
     if f.status:
         conds.append(PatternTrade.status == f.status)
     if f.side:

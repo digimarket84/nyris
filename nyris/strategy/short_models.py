@@ -37,8 +37,9 @@ class ShortParams:
     # Extension : majors + paires plus volatiles disponibles sur Binance EUR.
     # INJ exclu (pas de paire INJEUR sur le flux). LINK/AVAX/PEPE sont fins :
     # protegés par le plancher de volatilite min_atr_pct (n'entre que si ca bouge).
+    # Majors BTC/ETH/SOL retirés TEMPORAIREMENT (réversible : les remettre dans le tuple).
     universe: tuple[str, ...] = (
-        "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
+        "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
         # tokens "hype" cotés en USDT uniquement (pas de paire EUR) — très volatils
         "POND", "BABY", "HOME", "LA",
     )

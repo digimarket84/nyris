@@ -16,10 +16,12 @@ from nyris.models.short_trade import ShortTrade
 from nyris.schemas.short_trade import ShortTradeFilters
 
 _ZERO = Decimal("0.00")
+# Symboles masqués de l'AFFICHAGE (pas supprimés de la BDD). Réversible : vider le tuple.
+_HIDDEN = ("BTC", "ETH", "SOL")
 
 
 def _conds(filters: ShortTradeFilters):
-    conds = []
+    conds = [Asset.symbol.notin_(_HIDDEN)]
     if filters.status:
         conds.append(ShortTrade.status == filters.status)
     if filters.run_id:

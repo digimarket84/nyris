@@ -32,8 +32,10 @@ class PatternReason(enum.StrEnum):
 
 @dataclass(frozen=True)
 class PatternParams:
+    # Majors BTC/ETH/SOL retirés TEMPORAIREMENT (les pires au profil : -7€, 22% win).
+    # Réversible : les remettre dans le tuple.
     universe: tuple[str, ...] = (
-        "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
+        "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
         "POND", "BABY", "HOME", "LA",
     )
     timeframe: str = "5m"  # détection

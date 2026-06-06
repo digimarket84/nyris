@@ -228,8 +228,9 @@ def process_asset(db, asset, strat, exec_candles, ctx_candles, summary):
         _bump(summary, "hold_no_signal")
 
 
+# Majors BTC/ETH/SOL retirés TEMPORAIREMENT (réversible : les remettre dans le tuple).
 ENTRY_UNIVERSE = (
-    "BTC", "ETH", "SOL", "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
+    "NEAR", "SUI", "LINK", "AVAX", "DOGE", "PEPE",
     "POND", "BABY", "HOME", "LA",
 )
 
