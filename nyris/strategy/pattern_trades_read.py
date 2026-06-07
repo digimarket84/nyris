@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from nyris.models.asset import Asset
@@ -12,12 +12,14 @@ from nyris.models.pattern_trade import PatternTrade
 from nyris.schemas.pattern_trade import PatternTradeFilters
 
 _ZERO = Decimal("0.00")
-# Symboles masqués de l'AFFICHAGE (pas supprimés de la BDD). Réversible : vider le tuple.
+# Majors masqués de l'AFFICHAGE pour les runners intraday/LLM (BDD intacte). Réversible.
+# EXCEPTION : le runner trend-following (live-trend-v1) trade les majors -> on les montre.
 _HIDDEN = ("BTC", "ETH", "SOL")
+_TREND_RUN = "live-trend-v1"
 
 
 def _conds(f: PatternTradeFilters):
-    conds = [Asset.symbol.notin_(_HIDDEN)]
+    conds = [or_(Asset.symbol.notin_(_HIDDEN), PatternTrade.run_id == _TREND_RUN)]
     if f.status:
         conds.append(PatternTrade.status == f.status)
     if f.side:
