@@ -1,0 +1,11 @@
+[Unit]
+Description=Nyris - timer runner MEAN-REVERSION daily (1x/jour apres la cloture daily UTC)
+
+[Timer]
+# La bougie daily Binance cloture a 00:00 UTC ; on evalue a 00:10 UTC (apres le trend).
+OnCalendar=*-*-* 00:10:00 UTC
+Persistent=true
+Unit=nyris-meanrev-runner.service
+
+[Install]
+WantedBy=timers.target
