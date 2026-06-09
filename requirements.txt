@@ -29,3 +29,4 @@ watchfiles==1.2.0
 websockets==16.0
 wheel==0.47.0
 httpx
+numpy==2.4.6
