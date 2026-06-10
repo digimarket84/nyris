@@ -43,6 +43,9 @@ class LlmStrategy:
     spread_rate: Decimal = Decimal("0.0005")
     slippage_rate: Decimal = Decimal("0.0005")
     funding_rate_daily: Decimal = Decimal("0.0003")
+    long_only: bool = False  # ignore les signaux short (ex. mistral)
+    compound: bool = False  # mise = capital*fraction, capital qui grossit/rétrécit du PnL réalisé
+    compound_epoch_ms: int = 0  # début de l'ère compounding (PnL compté à partir de là)
 
     @property
     def params_key(self) -> str:

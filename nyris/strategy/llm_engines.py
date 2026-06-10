@@ -179,5 +179,6 @@ STRATEGIES = [
     # unitaires énormes (stops ATR ~8%). entry_gemini reste dispo pour réactivation.
     LlmStrategy("mistral", "live-mistral-v1", "5m", "1h", 320, 320,
                 reward_ratio=2.667, be_trigger_r=1.0, be_offset_pct=0.001,
-                reverse_on_opposite=True, max_open_positions=3),
+                reverse_on_opposite=True, max_open_positions=3,
+                long_only=True, compound=True, compound_epoch_ms=1781049600000),
 ]

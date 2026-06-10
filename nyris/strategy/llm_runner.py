@@ -167,8 +167,23 @@ def _manage(db, strat, opens, cct, close):
             _close(db, t, strat, close, "exit_time", cct)
 
 
-def _open_signal(db, asset, strat, sig, cct, summary):
-    full = (strat.starting_capital * strat.position_fraction).quantize(Decimal("0.01"))
+def _notional(db, strat) -> Decimal:
+    """Mise par trade. Compounding (mistral) : base + PnL réalisé depuis l'époque, sans levier."""
+    if not strat.compound:
+        return (strat.starting_capital * strat.position_fraction).quantize(Decimal("0.01"))
+    epoch = evaluated_at_from_candle(strat.compound_epoch_ms)
+    realized = db.scalar(select(func.coalesce(func.sum(PatternTrade.pnl_net), 0)).where(
+        PatternTrade.run_id == strat.run_id, PatternTrade.status == "closed",
+        PatternTrade.opened_at >= epoch)) or 0
+    open_noti = db.scalar(select(func.coalesce(func.sum(PatternTrade.amount_invested), 0)).where(
+        PatternTrade.run_id == strat.run_id, PatternTrade.status == "open")) or 0
+    bankroll = max(float(strat.starting_capital) + float(realized), 5.0)
+    avail = max(bankroll - float(open_noti), 0.0)
+    n = min(bankroll * float(strat.position_fraction), avail)
+    return Decimal(str(round(n, 2)))
+
+
+def _open_signal(db, asset, strat, sig, full, cct, summary):
     if strat.partial and sig.tp2 is not None:
         half = (full / 2).quantize(Decimal("0.01"))
         db.add(_build(asset, strat, sig.side, sig.entry, sig.stop, sig.tp, half,
@@ -203,7 +218,7 @@ def process_asset(db, asset, strat, exec_candles, ctx_candles, summary):
             _bump(summary, "hold_in_position")
             return
 
-    if sig is not None:
+    if sig is not None and not (strat.long_only and sig.side == "short"):
         if _open_asset_count(db, strat.run_id) >= strat.max_open_positions:
             _record(db, asset, strat, cct, close, "skip", "skip_blocked_max_positions", "flat")
             db.commit()
@@ -219,7 +234,13 @@ def process_asset(db, asset, strat, exec_candles, ctx_candles, summary):
                     db.commit()
                     _bump(summary, "skip_blocked_cooldown")
                     return
-        _open_signal(db, asset, strat, sig, cct, summary)
+        full = _notional(db, strat)
+        if full < Decimal("1"):
+            _record(db, asset, strat, cct, close, "skip", "skip_blocked_min_notional", "flat")
+            db.commit()
+            _bump(summary, "skip_blocked_min_notional")
+            return
+        _open_signal(db, asset, strat, sig, full, cct, summary)
         _record(db, asset, strat, cct, close, "enter", sig.reason, "flat")
         db.commit()
     else:
