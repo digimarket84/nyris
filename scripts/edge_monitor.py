@@ -76,7 +76,8 @@ def main():
         for a in alerts:
             print("  ! " + a)
     else:
-        print("Aucune degradation significative. (Rappel : ne PAS reagir au bruit / trades isoles.)")
+        print("Aucune degradation significative.")
+        print("(Rappel : ne PAS reagir au bruit / aux trades isoles.)")
 
 
 if __name__ == "__main__":
