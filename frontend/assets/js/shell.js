@@ -8,6 +8,7 @@
     { href: "decisions.html", label: "Décisions" },
     { href: "short-trades.html", label: "Short" },
     { href: "pattern-trades.html", label: "Pattern" },
+    { href: "mistral-long.html", label: "Mistral L-O" },
   ];
   const current = location.pathname.split("/").pop() || "index.html";
   let bannerTimer = null;
