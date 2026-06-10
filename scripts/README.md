@@ -69,3 +69,20 @@ Top wallets gagnants (agreges server-side, fenetre 3h), 716 positions copiables.
   Notre ret median TOUJOURS negatif ; a latence realiste (10-15%) on est breakeven/perte, 8-13% gagnants.
 - Wallets selectionnes sur 3h passees (biais survivant) -> forward = pire.
 - Conclusion : -EV a marginal, on serait la exit liquidity. Course de vitesse non gagnable.
+
+## Session conseil (2026-06-10)
+Conseil de 5 modeles -> 4 idees convergentes. Verdicts backtest :
+- #1 FILTRE FUNDING (bt_funding_filter.py) : MIRAGE. 45 trades -> signal monotone net ; 211 trades
+  sur ~2 ans [funding Binance via startTime] -> s effondre [bucket haut PF 1.39, meilleur sur 365j].
+  Filtre <=median = 1.73 vs 1.73 non filtre sur tout, et 1.34 vs 2.13 sur 365j. REJETE.
+  Bonus : edge MR re-confirme sur echantillon independant [PF 1.73 sur 211 trades].
+- #2 CROSS-SECTIONNEL (bt_cross_sectional.py) : XS mean-rev = couteaux qui tombent [lift -80 a -109] ;
+  XS momentum marginal + DD -90 pct. REJETE [cross-section trop mince, 13-16 alts].
+- #3 VOL-SIZING : geometrie [cf bt_mr_unleashed.py], pas alpha nouveau.
+- #4 REGIME-SWITCH : non teste [seul candidat restant].
+- COUCHE ADAPTATIVE (bt_adaptive.py) : kill-switch auto sur PF glissant DEGRADE meanrev [coupe avant
+  le rebond MR] ; sizing pro-cyclique catastrophique [DD -465 pct]. Donc on deploie un MONITEUR
+  (edge_monitor.py) qui ALERTE sur degradation significative [PF glissant < 0.8 sur >=15 trades],
+  SANS auto-action. Decision humaine = regime vs bruit.
+LECON : recence [instinct user] + taille echantillon [>=~50 trades, via coupe transversale] = la
+bonne methode, pas l une contre l autre. 45 trades ont menti, 211 ont dit la verite.
