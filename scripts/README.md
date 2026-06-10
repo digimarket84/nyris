@@ -33,3 +33,22 @@ généralisation cross-actifs, et il doit **battre le taux de base**, pas juste 
 - `bt_knn_analog.py` / `bt_knn_v2.py` — analogues kNN (archivés : pas d'edge).
 - `analyse_strats.py` — analyse comparative live de tous les runners (réalisé + flottant).
 - `sec_audit.sh` — audit sécurité VPS (lecture seule).
+
+## Étude pump.fun (Bitquery, données Solana)
+Scripts : `bq_rugger_dump.py` (profil sniper), `bq_rugger_compare.py` (sniper vs rugger).
+Token API dans `/srv/nyris/config/.env` (BITQUERY_TOKEN, hors git). Tier gratuit = points
+limités/mois (on a hit un HTTP 402 après l échantillon sniper).
+
+**Constat littérature** : ~0,63-1,4 % des tokens graduent ; 98,6 % = scams ; users -4 à -5,5 Mds$.
+L étude arXiv 2602.14860 (features causales) montre qu aucune proba de migration ne dépasse
+le seuil de rentabilité -> pas d edge exploitable pour un trader extérieur.
+
+**Mesure live (88 dumps, profil = premier acheteur/sniper)** :
+- 85 % des premiers acheteurs dumpent ; gain médian au dump = +43 % (moy +66 %, p25~0 %, p90 +191 %) ;
+  26 % vendent à perte.
+- Délai achat->dump : médiane 12 SECONDES (73 % < 60 s). Fraction vendue médiane = 100 % (tout d un coup).
+- Pic dispo médian = +2591 % au-dessus de leur entrée -> ils scalpent un flip rapide, ne tiennent pas.
+- Conclusion : ce n est pas un seuil de %, c est un seuil de TEMPS (~12 s) ; impossible à front-run -> jeu de bots.
+
+**Profil rugger (plus gros vendeur)** : script prêt (`bq_rugger_compare.py`), à relancer au reset du quota
+pour mesurer à quel multiple/mcap le créateur lâche sa grosse allocation.
