@@ -52,3 +52,20 @@ le seuil de rentabilité -> pas d edge exploitable pour un trader extérieur.
 
 **Profil rugger (plus gros vendeur)** : script prêt (`bq_rugger_compare.py`), à relancer au reset du quota
 pour mesurer à quel multiple/mcap le créateur lâche sa grosse allocation.
+
+## Test 2 — Meanrev DEBRIDE (`bt_mr_unleashed.py`)
+Compounding + plein capital, SANS levier, E0=1000E, 7 ans, 13 alts.
+- Bride (100E fixe) : +81% (CAGR +9%, DD -19%).
+- Debride : monte jusqu a +184% (CAGR +16%) a 25%/pos MAIS DD -64% ; au-dela (33%/pos)
+  le rendement RETOMBE (+96%, DD -67%) = sur-pari (au-dela de Kelly).
+- Conclusion : nos garde-fous n etaient pas de la timidite -> ils achetaient de la survie.
+  Cadran reglable, sweet spot ~12-17%/pos (+113 a +151%, DD -31 a -42%). Backtest only ;
+  meanrev pas encore confirme live -> debrider serait premature.
+
+## Test 1 — Copy-trade pump.fun (`bq_copytrade.py`)
+Top wallets gagnants (agreges server-side, fenetre 3h), 716 positions copiables.
+- Leur perf : ret median ~0%, moyenne +26.7%, 49% gagnants -> edge a QUEUE EPAISSE.
+- Si on copie avec slippage de latence s : total cumule +184 (s=0) -> +19 (s=10%) -> -52 (s=15%).
+  Notre ret median TOUJOURS negatif ; a latence realiste (10-15%) on est breakeven/perte, 8-13% gagnants.
+- Wallets selectionnes sur 3h passees (biais survivant) -> forward = pire.
+- Conclusion : -EV a marginal, on serait la exit liquidity. Course de vitesse non gagnable.
