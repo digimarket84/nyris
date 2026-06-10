@@ -1,0 +1,11 @@
+[Unit]
+Description=Nyris - timer runner MEAN-REVERSION v2 daily (univers elargi)
+
+[Timer]
+# Apres la cloture daily UTC ; 00:15 (apres v1 a 00:10, trend a 00:05).
+OnCalendar=*-*-* 00:15:00 UTC
+Persistent=true
+Unit=nyris-meanrev-v2-runner.service
+
+[Install]
+WantedBy=timers.target
