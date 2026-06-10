@@ -20,7 +20,8 @@ EPOCH_MR = dt.datetime(2026, 6, 10, tzinfo=dt.UTC)  # ere mistral long-only/comp
 
 # run_id -> (label, filtre side optionnel, epoch optionnel)
 RUNS = [
-    ("live-meanrev-v1", "MEANREV (edge valide)", None, None),
+    ("live-meanrev-v1", "MEANREV v1 (13 alts)", None, None),
+    ("live-meanrev-v2", "MEANREV v2 (top-100)", None, None),
     ("live-mistral-v1", "MISTRAL long-only", "long", EPOCH_MR),
     ("live-trend-v1", "TREND (dormant)", None, None),
     ("live-pattern-v1", "pattern (pause)", None, None),
