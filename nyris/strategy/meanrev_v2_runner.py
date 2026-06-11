@@ -22,7 +22,9 @@ from nyris.strategy.meanrev_v2_universe import PAIRS
 
 logger = logging.getLogger("nyris.meanrev_v2_runner")
 LOCK_PATH = "/srv/nyris/meanrev-v2-runner.lock"
-MR_V2 = MeanRevParams(universe=PAIRS, run_id="live-meanrev-v2")
+# Mode EXTINCTION : plus de nouvelles entrees (allow_entries=False), mais le runner continue
+# de tourner pour CLOTURER les positions ouvertes au rebond>SMA10 / cap 20j. Réversible.
+MR_V2 = MeanRevParams(universe=PAIRS, run_id="live-meanrev-v2", allow_entries=False)
 
 
 class MeanRevV2Busy(Exception):

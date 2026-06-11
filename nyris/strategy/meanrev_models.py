@@ -40,6 +40,7 @@ class MeanRevParams:
     slippage_rate: Decimal = Decimal("0.0005")
     funding_rate_daily: Decimal = Decimal("0")  # long spot -> pas de portage
     run_id: str = "live-meanrev-v1"
+    allow_entries: bool = True  # False = mode extinction : plus de nouvelles entrees, sorties OK
 
     def key(self) -> str:
         return (

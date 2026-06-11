@@ -133,7 +133,7 @@ def process_asset(db: Session, symbol: str, p: MeanRevParams, summary: dict) -> 
         bars_held = max(int((cct - opened_ms) / DAY_MS), 0)
     d = evaluate_meanrev(candles, trade is not None, bars_held, p)
     pstate = "open" if trade is not None else "flat"
-    if d.action == "enter":
+    if d.action == "enter" and p.allow_entries:
         nt = _build(asset, p, d)
         db.add(nt)
         db.flush()
