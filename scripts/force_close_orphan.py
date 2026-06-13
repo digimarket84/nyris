@@ -26,7 +26,7 @@ if t is None:
 sym = db.scalar(select(Asset.binance_symbol).where(Asset.id == t.asset_id))
 price = float(json.loads(urllib.request.urlopen(
     f"https://api.binance.com/api/v3/ticker/price?symbol={sym}", timeout=20).read())["price"])
-now = dt.datetime.now(dt.timezone.utc)
+now = dt.datetime.now(dt.UTC)
 hrs = max((now - t.opened_at).total_seconds() / 3600, 0.0)
 res = pattern_pnl.compute_close(t.side, t.amount_invested, t.quantity, t.entry_cost,
                                 Decimal(str(price)), t, hrs)
