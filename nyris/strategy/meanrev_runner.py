@@ -14,6 +14,7 @@ from __future__ import annotations
 import fcntl
 import logging
 from contextlib import contextmanager
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -33,6 +34,7 @@ MR = MeanRevParams()
 CANDLE_LIMIT = 200
 LOCK_PATH = "/srv/nyris/meanrev-runner.lock"
 DAY_MS = 86_400_000
+STALE_MS = 3 * DAY_MS  # bougie daily plus vieille que 3j = donnees gelees (token halté/délisté)
 
 
 class MeanRevRunnerBusy(Exception):
@@ -124,6 +126,10 @@ def process_asset(db: Session, symbol: str, p: MeanRevParams, summary: dict) -> 
         return
     trade = _open(db, asset.id, p)
     cct = candles[-1].close_time
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    if now_ms - cct > STALE_MS:  # garde-fou anti-orphelin: skip si bougie perimee
+        _bump(summary, "skip_stale_data")
+        return
     if _decision_exists(db, asset.id, p, cct):
         _bump(summary, "already_processed")
         return
