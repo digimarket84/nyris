@@ -1,0 +1,20 @@
+[Unit]
+Description=Nyris - runner MEAN-REVERSION v3 (4 simulations 50E compoundees, oneshot)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/nyris/app
+EnvironmentFile=/srv/nyris/config/.env
+ExecStart=/srv/nyris/.venv/bin/python -m nyris.strategy.meanrev_v3_runner
+SyslogIdentifier=nyris-meanrev-v3-runner
+StandardOutput=journal
+StandardError=journal
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true

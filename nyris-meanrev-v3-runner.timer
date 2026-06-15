@@ -1,0 +1,11 @@
+[Unit]
+Description=Nyris - timer runner MEAN-REVERSION v3 (4 simulations daily)
+
+[Timer]
+# Apres la cloture daily UTC ; 00:20 (apres v2 00:15, v1 00:10, trend 00:05).
+OnCalendar=*-*-* 00:20:00 UTC
+Persistent=true
+Unit=nyris-meanrev-v3-runner.service
+
+[Install]
+WantedBy=timers.target
